@@ -49,9 +49,6 @@ If `qemu-system-i386` is not present, the build uses `scripts/qemu.sh` to instal
 - Keyboard IRQ handling (B3) now feeds a small ring buffer for shell-style input while continuing to use the printable set-1 map.
 - Next steps on the kernel side: stress the timer under load and begin shaping shell input paths on top of the new buffer.
 
-## OS/mosis rules
-See `docs/OSMOSIS_RULES.md` for the integration rules that keep the kernel and OS surfaces co-designed, minimal, and observable.
-
 ## Notes on organization
 - Architecture-specific code is nested under `src/arch/i386` with matching headers in `include/osmosis/arch/i386` to keep future ports contained.
 - Common kernel components live under `src/kernel` and include headers from `include/osmosis`.
