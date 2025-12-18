@@ -3,7 +3,8 @@
 
 extern kernel_main
 
-[bits 32]
+BITS 32
+ORG 0x100000
 
 section .text
 global _start
