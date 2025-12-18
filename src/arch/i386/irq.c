@@ -73,6 +73,20 @@ void irq_enable(void) {
     __asm__ __volatile__("sti");
 }
 
+void irq_disable(void) {
+    __asm__ __volatile__("cli" ::: "memory");
+}
+
+uint32_t irq_save(void) {
+    uint32_t flags;
+    __asm__ __volatile__("pushfl; popl %0; cli" : "=r"(flags) :: "memory");
+    return flags;
+}
+
+void irq_restore(uint32_t flags) {
+    __asm__ __volatile__("pushl %0; popfl" :: "r"(flags) : "memory", "cc");
+}
+
 void irq_handler(struct isr_frame *frame) {
     if (frame->int_no >= IRQ_BASE && frame->int_no <= IRQ_MAX) {
         uint8_t irq_no = (uint8_t)(frame->int_no - IRQ_BASE);
