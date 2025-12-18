@@ -85,6 +85,8 @@ int kprintf(const char *fmt, ...) {
             default:
                 tty_putc('%');
                 tty_putc(*p);
+                serial_write_char('%');
+                serial_write_char(*p);
                 break;
         }
     }
