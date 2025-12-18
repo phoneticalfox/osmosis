@@ -1,7 +1,9 @@
 #include "osmosis/kprintf.h"
 #include "osmosis/tty.h"
+#include "osmosis/arch/i386/serial.h"
 
 #include <stdarg.h>
+#include <stdint.h>
 
 static void print_hex(uint32_t value) {
     const char *hex_digits = "0123456789ABCDEF";
@@ -14,6 +16,7 @@ static void print_hex(uint32_t value) {
 
     buffer[8] = '\0';
     tty_write(buffer);
+    serial_write(buffer);
 }
 
 static void print_dec(int value) {

@@ -14,7 +14,8 @@
 │   │   ├── boot/    – Entry and early setup
 │   │   ├── gdt.asm  – Descriptor table used by the boot path
 │   │   ├── idt.c    – Interrupt table configuration
-│   │   └── pit.c    – PIT setup + tick accounting for the timer heartbeat
+│   │   ├── pit.c    – PIT setup + tick accounting for the timer heartbeat
+│   │   └── keyboard.c – PS/2 keyboard interrupt handler
 │   └── kernel/      – Platform-agnostic kernel components
 │       ├── kernel.c – Kernel entry point and init sequence
 │       ├── kprintf.c
