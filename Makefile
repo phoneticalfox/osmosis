@@ -5,7 +5,7 @@ AS      := nasm
 ASFLAGS := -f elf32 -Isrc/
 CFLAGS  ?= -ffreestanding -std=gnu99 -Wall -Wextra -Iinclude
 LDFLAGS ?= -nostdlib -T build/linker.ld
-QEMU    ?= qemu-system-i386
+QEMU    ?= ./scripts/qemu.sh
 
 ifeq ($(CROSS),)
 # Host toolchain fallback; force 32-bit output when cross tools are unavailable.
