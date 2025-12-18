@@ -8,12 +8,13 @@
 │   └── obj/         – Object files created by `make`
 ├── include/         – Public headers
 │   ├── osmosis/     – Kernel APIs (tty, printf, panic)
-│   └── osmosis/arch/i386 – Architecture-specific APIs (IDT)
+│   └── osmosis/arch/i386 – Architecture-specific APIs (IDT/IRQ/PIT)
 ├── src/             – Kernel sources
 │   ├── arch/i386/   – Platform-specific assembly and C
 │   │   ├── boot/    – Entry and early setup
 │   │   ├── gdt.asm  – Descriptor table used by the boot path
-│   │   └── idt.c    – Interrupt table configuration
+│   │   ├── idt.c    – Interrupt table configuration
+│   │   └── pit.c    – PIT setup + tick accounting for the timer heartbeat
 │   └── kernel/      – Platform-agnostic kernel components
 │       ├── kernel.c – Kernel entry point and init sequence
 │       ├── kprintf.c

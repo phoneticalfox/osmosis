@@ -1,8 +1,16 @@
-CC      ?= i686-elf-gcc
-LD      ?= i686-elf-ld
-AS      ?= nasm
+CROSS   ?=
+CC      ?= $(if $(CROSS),$(CROSS)gcc,gcc)
+LD      ?= $(if $(CROSS),$(CROSS)ld,ld)
+AS      := nasm
+ASFLAGS := -f elf32 -Isrc/
 CFLAGS  ?= -ffreestanding -std=gnu99 -Wall -Wextra -Iinclude
 LDFLAGS ?= -nostdlib -T build/linker.ld
+
+ifeq ($(CROSS),)
+# Host toolchain fallback; force 32-bit output when cross tools are unavailable.
+CFLAGS  += -m32
+LDFLAGS += -m elf_i386
+endif
 
 OBJ_DIR      := build/obj
 KERNEL_BIN   := build/kernel.bin
@@ -10,7 +18,9 @@ KERNEL_BIN   := build/kernel.bin
 BOOT_OBJS    := $(OBJ_DIR)/arch/i386/boot.o $(OBJ_DIR)/arch/i386/gdt.o
 KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
                 $(OBJ_DIR)/kernel/kprintf.o $(OBJ_DIR)/kernel/panic.o \
-                $(OBJ_DIR)/arch/i386/idt.o
+                $(OBJ_DIR)/arch/i386/idt.o $(OBJ_DIR)/arch/i386/isr_handler.o \
+                $(OBJ_DIR)/arch/i386/isr.o $(OBJ_DIR)/arch/i386/irq.o \
+                $(OBJ_DIR)/arch/i386/irq_stubs.o $(OBJ_DIR)/arch/i386/pit.o
 
 OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
 

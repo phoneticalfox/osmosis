@@ -13,3 +13,5 @@ GDT_END:
 GDTR:
     dw GDT_END - GDT_START - 1
     dd GDT_START
+
+section .note.GNU-stack noalloc noexec nowrite align=4
