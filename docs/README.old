@@ -1,0 +1,21 @@
+# OS/mosis Kernel Seed (previous layout)
+
+This was the original flat layout before the repository was reorganized. Sources and headers lived together at the root and were built manually with `nasm`, `i686-elf-gcc`, and `i686-elf-ld`.
+
+## Previous contents
+- `boot.asm` – 32-bit entry point and protected mode transition.
+- `gdt.asm` – Global Descriptor Table definitions.
+- `kernel.c` – Kernel entry and integration point for early subsystems.
+- `idt.h` / `idt.c` – Interrupt Descriptor Table structures and initialization.
+- `tty.h` / `tty.c` – VGA text console driver with scrolling support.
+- `kprintf.h` / `kprintf.c` – Minimal printf-style formatter and integer conversion helpers.
+- `panic.h` / `panic.c` – Fatal error reporting that halts safely.
+- `linker.ld` – Linker script placing the kernel at 0x0010_0000.
+
+## Previous build recipe
+```bash
+nasm -f elf32 boot.asm -o boot.o
+nasm -f elf32 gdt.asm -o gdt.o
+i686-elf-gcc -ffreestanding -c kernel.c tty.c kprintf.c panic.c idt.c
+i686-elf-ld -T linker.ld -o kernel.bin boot.o gdt.o kernel.o tty.o kprintf.o panic.o idt.o
+```
