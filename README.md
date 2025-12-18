@@ -10,7 +10,6 @@ OS/mosis is a freestanding 32-bit x86 kernel seed focused on correctness and cla
 - `src/arch/i386/irq.asm`, `src/arch/i386/irq.c` — PIC remap, IRQ stubs (32–47), and a basic handler/registration layer.
 - `src/arch/i386/pit.c` — PIT configuration and tick counter used to prove interrupts stay alive.
 - `src/arch/i386/keyboard.c` — PS/2 keyboard IRQ handler and printable scancode mapping.
-- `legacy/osmosis_repo/` — Archived copy of the original flat-layout kernel seed for reference.
 - `src/kernel/` — Core kernel subsystems (console, formatting, panic handling, kernel entry).
 - `include/osmosis/` — Public headers for kernel subsystems; architecture-specific headers live under `include/osmosis/arch/i386`.
 - `build/linker.ld` — Linker script that places the kernel at 0x0010_0000.

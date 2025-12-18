@@ -26,7 +26,6 @@ static void print_dec(int value) {
 
     if (value == 0) {
         tty_putc('0');
-        serial_write_char('0');
         return;
     }
 
@@ -45,7 +44,6 @@ static void print_dec(int value) {
 
     for (int i = idx - 1; i >= 0; i--) {
         tty_putc(buffer[i]);
-        serial_write_char(buffer[i]);
     }
 }
 
@@ -56,7 +54,6 @@ int kprintf(const char *fmt, ...) {
     for (const char *p = fmt; *p; p++) {
         if (*p != '%') {
             tty_putc(*p);
-            serial_write_char(*p);
             continue;
         }
 
@@ -65,7 +62,6 @@ int kprintf(const char *fmt, ...) {
             case 's': {
                 const char *s = va_arg(args, const char *);
                 tty_write(s);
-                serial_write(s);
                 break;
             }
             case 'x': {
@@ -81,12 +77,10 @@ int kprintf(const char *fmt, ...) {
             case 'c': {
                 int c = va_arg(args, int);
                 tty_putc((char)c);
-                serial_write_char((char)c);
                 break;
             }
             case '%':
                 tty_putc('%');
-                serial_write_char('%');
                 break;
             default:
                 tty_putc('%');
