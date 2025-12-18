@@ -1,34 +1,38 @@
-# OS/mosis Kernel Layout
+# OS/mosis Kernel Seed
 
-OS/mosis is a freestanding 32-bit x86 kernel seed focused on correctness and clarity. This repository now mirrors a more conventional kernel layout with separate source, headers, build artifacts, and documentation.
+OS/mosis is a freestanding 32-bit x86 kernel seed focused on correctness and clarity. This repository contains the minimal pieces needed to enter protected mode, initialize descriptor tables, and provide basic console output for early debugging.
 
-## Directory overview
-- `src/arch/i386/boot/boot.asm` — Stage-0 entry that switches to protected mode and jumps to the kernel.
-- `src/arch/i386/gdt.asm` — Global Descriptor Table definition used during the mode switch.
-- `src/arch/i386/idt.c` — Interrupt Descriptor Table setup and helpers.
-- `src/kernel/` — Core kernel subsystems (console, formatting, panic handling, kernel entry).
-- `include/osmosis/` — Public headers for kernel subsystems; architecture-specific headers live under `include/osmosis/arch/i386`.
-- `build/linker.ld` — Linker script that places the kernel at 0x0010_0000.
-- `build/obj/` — Generated object files (created during the build).
-- `docs/` — Additional documentation and roadmap material for OS/mosis.
+## Layout
+- `boot.asm` – 32-bit entry point and protected mode transition.
+- `gdt.asm` – Global Descriptor Table definitions.
+- `kernel.c` – Kernel entry and integration point for early subsystems.
+- `idt.h` / `idt.c` – Interrupt Descriptor Table structures and initialization.
+- `tty.h` / `tty.c` – VGA text console driver with scrolling support.
+- `kprintf.h` / `kprintf.c` – Minimal printf-style formatter and integer conversion helpers.
+- `panic.h` / `panic.c` – Fatal error reporting that halts safely.
+- `linker.ld` – Linker script that places the kernel at 0x100000.
+- `STRUCTURE.md` – Additional overview of the project structure.
+- `manifesto.md` – Philosophical guide for the OS/mosis roadmap.
 
 ## Building
-A cross i686-elf toolchain is required (`nasm`, `i686-elf-gcc`, `i686-elf-ld`).
+1. Install a cross-compilation toolchain (e.g., `i686-elf-gcc`, `i686-elf-ld`, and `nasm`).
+2. Assemble the boot and GDT sources:
+   ```bash
+   nasm -f elf32 boot.asm -o boot.o
+   nasm -f elf32 gdt.asm -o gdt.o
+   ```
+3. Compile the C sources with freestanding flags:
+   ```bash
+   i686-elf-gcc -ffreestanding -c kernel.c tty.c kprintf.c panic.c idt.c
+   ```
+4. Link everything into a kernel binary:
+   ```bash
+   i686-elf-ld -T linker.ld -o kernel.bin boot.o gdt.o kernel.o tty.o kprintf.o panic.o idt.o
+   ```
+5. Boot the kernel in your emulator of choice, for example with QEMU:
+   ```bash
+   qemu-system-i386 -kernel kernel.bin
+   ```
 
-```bash
-make            # builds build/kernel.bin
-```
-
-Artifacts are written under `build/`.
-
-## Running with QEMU
-After building:
-
-```bash
-qemu-system-i386 -kernel build/kernel.bin
-```
-
-## Notes on organization
-- Architecture-specific code is nested under `src/arch/i386` with matching headers in `include/osmosis/arch/i386` to keep future ports contained.
-- Common kernel components live under `src/kernel` and include headers from `include/osmosis`.
-- The `Makefile` drives the freestanding build and keeps generated objects in `build/obj/` so the source tree stays clean.
+## Contributing
+Follow the principles in `manifesto.md`: prioritize correctness, clarity, and explicit behavior over convenience. Each subsystem should remain testable in isolation and avoid hidden dependencies on hosted runtimes.
