@@ -27,45 +27,27 @@ OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
 all: $(KERNEL_BIN)
 
 $(KERNEL_BIN): $(OBJS) build/linker.ld
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
 $(OBJ_DIR)/arch/i386/boot.o: src/arch/i386/boot/boot.asm src/arch/i386/gdt.asm | $(OBJ_DIR)/arch/i386
-	$(AS) $(ASFLAGS) $< -o $@
+$(AS) -f elf32 $< -o $@
 
 $(OBJ_DIR)/arch/i386/gdt.o: src/arch/i386/gdt.asm | $(OBJ_DIR)/arch/i386
-	$(AS) $(ASFLAGS) $< -o $@
+$(AS) -f elf32 $< -o $@
 
 $(OBJ_DIR)/arch/i386/idt.o: src/arch/i386/idt.c include/osmosis/arch/i386/idt.h | $(OBJ_DIR)/arch/i386
-	$(CC) $(CFLAGS) -c $< -o $@
+$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/arch/i386/isr_handler.o: src/arch/i386/isr_handler.c include/osmosis/arch/i386/isr.h | $(OBJ_DIR)/arch/i386
-	$(CC) $(CFLAGS) -c $< -o $@
+$(OBJ_DIR)/kernel/%.o: src/kernel/%.c include/osmosis/%.h | $(OBJ_DIR)/kernel
+$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/arch/i386/isr.o: src/arch/i386/isr.asm | $(OBJ_DIR)/arch/i386
-	$(AS) $(ASFLAGS) $< -o $@
+$(OBJ_DIR)/arch/i386:
+@mkdir -p $@
 
-$(OBJ_DIR)/arch/i386/irq.o: src/arch/i386/irq.c include/osmosis/arch/i386/irq.h include/osmosis/arch/i386/io.h | $(OBJ_DIR)/arch/i386
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/arch/i386/irq_stubs.o: src/arch/i386/irq.asm | $(OBJ_DIR)/arch/i386
-	$(AS) $(ASFLAGS) $< -o $@
-
-$(OBJ_DIR)/arch/i386/pit.o: src/arch/i386/pit.c include/osmosis/arch/i386/pit.h include/osmosis/arch/i386/io.h include/osmosis/arch/i386/irq.h | $(OBJ_DIR)/arch/i386
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ_DIR)/kernel/%.o: src/kernel/%.c | $(OBJ_DIR)/kernel
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ_DIR):
-	@mkdir -p $@
-
-$(OBJ_DIR)/arch/i386: | $(OBJ_DIR)
-	@mkdir -p $@
-
-$(OBJ_DIR)/kernel: | $(OBJ_DIR)
-	@mkdir -p $@
+$(OBJ_DIR)/kernel:
+@mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(KERNEL_BIN)
+rm -rf $(OBJ_DIR) $(KERNEL_BIN)
 
 .PHONY: all clean
