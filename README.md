@@ -44,8 +44,8 @@ The `qemu` target enables serial logging (COM1 → `-serial stdio`) and uses QEM
 ## Roadmap position
 - Phase A (exceptions) and B1 (PIC remap + IRQ routing) are in place.
 - The PIT heartbeat (B2) is configured at 100 Hz and counted during boot to verify interrupts stay alive.
-- Keyboard IRQ handling (B3) is wired with a default printable mapping so keypresses appear on the console.
-- Next steps on the kernel side: stress the timer under load, add keyboard buffering, and begin shaping shell input paths.
+- Keyboard IRQ handling (B3) now feeds a small ring buffer for shell-style input while continuing to use the printable set-1 map.
+- Next steps on the kernel side: stress the timer under load and begin shaping shell input paths on top of the new buffer.
 
 ## Notes on organization
 - Architecture-specific code is nested under `src/arch/i386` with matching headers in `include/osmosis/arch/i386` to keep future ports contained.
