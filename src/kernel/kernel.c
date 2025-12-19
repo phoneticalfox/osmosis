@@ -44,8 +44,14 @@ void kernel_main(void) {
     kprintf("Exiting via QEMU debug port.\n");
     qemu_exit(0);
 #else
-    kprintf("Keyboard buffer armed. Starting kernel shell.\n");
-    shell_run();
+    kprintf("Keyboard buffer armed. Type to echo characters.\n");
+    for (;;) {
+        char c;
+        while (keyboard_buffer_read(&c)) {
+            tty_putc(c);
+        }
+        __asm__ __volatile__("hlt");
+    }
 #endif
 
     for (;;) {
