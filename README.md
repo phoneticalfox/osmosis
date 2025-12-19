@@ -16,6 +16,9 @@ OS/mosis is a freestanding 32-bit x86 kernel seed focused on correctness and cla
 - `build/obj/` — Generated object files (created during the build).
 - `docs/` — Additional documentation and roadmap material for OS/mosis.
 
+### Legacy files
+The repository root still contains the earliest single-file kernel artifacts (`boot.asm`, `gdt.asm`, `kernel.c`, `idt.c`, etc.) and a preserved snapshot under `legacy/osmosis_repo/`. They are kept for comparison and teaching; the active build uses the `src/` + `include/` layout described above. If you want to follow the current path, start in `src/arch/i386` and `src/kernel`.
+
 ## Building
 You can build with a cross i686-elf toolchain (`nasm`, `i686-elf-gcc`, `i686-elf-ld`) by setting `CROSS=i686-elf-`.
 
@@ -42,6 +45,8 @@ make qemu
 The `qemu` target enables serial logging (COM1 → `-serial stdio`) and uses QEMU's `isa-debug-exit` port to terminate the VM once boot is complete, so the command returns promptly in CI environments.
 
 If `qemu-system-i386` is not present, the build uses `scripts/qemu.sh` to install the `qemu-system-x86` package on Ubuntu/Debian hosts (requires network access and root privileges). You can point the helper at a preinstalled binary with `QEMU_BIN=/path/to/qemu-system-i386 make qemu`, or disable auto-install with `OSMOSIS_QEMU_AUTO_INSTALL=0`.
+
+Auto-install details: the helper only runs `apt-get update` and installs `qemu-system-x86` when QEMU is missing. If you are in a locked-down environment, set `OSMOSIS_QEMU_AUTO_INSTALL=0` to force the build to fail fast instead of attempting to install packages.
 
 ## Roadmap position
 - Phase A (exceptions) and B1 (PIC remap + IRQ routing) are in place.
