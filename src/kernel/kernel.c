@@ -9,6 +9,7 @@
 #include "osmosis/arch/i386/keyboard.h"
 #include "osmosis/arch/i386/serial.h"
 #include "osmosis/arch/i386/qemu.h"
+#include "osmosis/shell.h"
 
 void kernel_main(void) {
     serial_init();
