@@ -8,6 +8,7 @@
 
 static volatile uint32_t pit_tick_count = 0;
 static struct pit_health current_health = {0, 0, 0};
+static uint32_t pit_current_frequency_hz = 0;
 
 static void pit_irq_handler(struct isr_frame *frame) {
     (void)frame;
@@ -30,6 +31,11 @@ void pit_init(uint32_t frequency_hz) {
     outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8) & 0xFF));
 
     irq_install_handler(0, pit_irq_handler);
+    pit_current_frequency_hz = PIT_INPUT_HZ / divisor;
+}
+
+uint32_t pit_frequency(void) {
+    return pit_current_frequency_hz;
 }
 
 uint32_t pit_ticks(void) {
@@ -41,6 +47,23 @@ void pit_wait_ticks(uint32_t delta) {
     while (pit_tick_count < target) {
         __asm__ __volatile__("hlt");
     }
+}
+
+uint64_t pit_uptime_ms(void) {
+    uint32_t freq = pit_current_frequency_hz ? pit_current_frequency_hz : 100;
+    uint32_t ticks = pit_tick_count;
+    uint32_t seconds = ticks / freq;
+    uint32_t remainder = ticks % freq;
+    uint32_t ms_fraction = (remainder * 1000u) / freq;
+    return ((uint64_t)seconds * 1000u) + ms_fraction;
+}
+
+void pit_sleep_ms(uint32_t ms) {
+    uint32_t freq = pit_current_frequency_hz ? pit_current_frequency_hz : 100;
+    uint32_t ticks = (ms / 1000u) * freq;
+    uint32_t remainder = ms % 1000u;
+    ticks += (remainder * freq + 999u) / 1000u; /* ceil(remainder * freq / 1000) */
+    pit_wait_ticks(ticks);
 }
 
 void pit_health_poll(void) {

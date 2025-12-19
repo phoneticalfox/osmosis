@@ -9,8 +9,11 @@
  * build on the tick counter it maintains.
  */
 void pit_init(uint32_t frequency_hz);
+uint32_t pit_frequency(void);
 uint32_t pit_ticks(void);
 void pit_wait_ticks(uint32_t delta);
+uint64_t pit_uptime_ms(void);
+void pit_sleep_ms(uint32_t ms);
 
 struct pit_health {
     uint32_t last_snapshot;
