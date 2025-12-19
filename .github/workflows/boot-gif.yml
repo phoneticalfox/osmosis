@@ -1,0 +1,45 @@
+name: Build and capture boot preview
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/workflows/boot-gif.yml'
+
+jobs:
+  boot-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential nasm gcc-multilib qemu-system-x86 python3-pip
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pillow
+
+      - name: Build kernel
+        run: make
+
+      - name: Capture boot log
+        run: |
+          mkdir -p build/artifacts
+          make qemu | tee build/artifacts/boot.log
+
+      - name: Render boot GIF
+        run: python3 scripts/render_boot_gif.py build/artifacts/boot.log build/artifacts/boot.gif
+
+      - name: Upload boot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-preview
+          path: |
+            build/artifacts/boot.log
+            build/artifacts/boot.gif
