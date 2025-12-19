@@ -10,5 +10,6 @@
  */
 void pit_init(uint32_t frequency_hz);
 uint32_t pit_ticks(void);
+void pit_wait_ticks(uint32_t delta);
 
 #endif

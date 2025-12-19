@@ -34,3 +34,10 @@ void pit_init(uint32_t frequency_hz) {
 uint32_t pit_ticks(void) {
     return pit_tick_count;
 }
+
+void pit_wait_ticks(uint32_t delta) {
+    uint32_t target = pit_tick_count + delta;
+    while (pit_tick_count < target) {
+        __asm__ __volatile__("hlt");
+    }
+}
