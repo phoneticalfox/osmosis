@@ -13,6 +13,14 @@ void irq_init(void);
 void irq_install_handler(uint8_t irq, irq_handler_t handler);
 void irq_clear_handler(uint8_t irq);
 void irq_enable(void);
+void irq_disable(void);
+
+/*
+ * Save and restore interrupt flags to protect short critical sections without
+ * enabling interrupts that were previously disabled.
+ */
+uint32_t irq_save(void);
+void irq_restore(uint32_t flags);
 
 void irq_handler(struct isr_frame *frame);
 
