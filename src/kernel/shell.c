@@ -24,17 +24,24 @@ static int str_eq(const char *a, const char *b) {
 
 static void shell_print_help(void) {
     tty_write("Commands:\n");
-    tty_write("  help   - Show this help text\n");
-    tty_write("  info   - Show kernel build and tick status\n");
-    tty_write("  clear  - Clear the screen\n");
-    tty_write("  ticks  - Show PIT health snapshot\n");
-    tty_write("  mem    - Show physical memory statistics\n");
+    tty_write("  help         - Show this help text\n");
+    tty_write("  info         - Show kernel build and tick status\n");
+    tty_write("  clear        - Clear the screen\n");
+    tty_write("  ticks        - Show PIT health snapshot\n");
+    tty_write("  uptime       - Show PIT-tracked uptime\n");
+    tty_write("  mem          - Show physical memory statistics\n");
+    tty_write("  sleep <ms>   - Pause for the requested milliseconds\n");
 }
 
 static void shell_print_info(void) {
     uint32_t ticks = pit_ticks();
-    kprintf("OS/mosis kernel: v0.1 (ticks=%u, free_frames=%u)\n", ticks, pmm_free_frames());
-    kprintf("Console: VGA text, IRQs enabled, PS/2 keyboard buffered.\n");
+    uint32_t freq = pit_frequency();
+    if (!freq) {
+        freq = 100;
+    }
+    kprintf("OS/mosis kernel: v0.1 (ticks=%u @ %u Hz, free_frames=%u)\n",
+            ticks, freq, pmm_free_frames());
+    kprintf("Console: VGA text, IRQs enabled, PS/2 keyboard buffered, PIT %u Hz.\n", freq);
 }
 
 static void shell_print_ticks(void) {
@@ -51,8 +58,74 @@ static void shell_print_memory(void) {
             (total_frames * 4), (free_frames * 4), free_frames, total_frames);
 }
 
+static void shell_print_uptime(void) {
+    uint32_t freq = pit_frequency();
+    if (!freq) {
+        freq = 100;
+    }
+
+    uint32_t ticks = pit_ticks();
+    uint32_t seconds = ticks / freq;
+    uint32_t ms_fraction = (ticks % freq) * 1000u / freq;
+
+    kprintf("Uptime: %u.%03u seconds (%u ticks @ %u Hz)\n",
+            seconds, ms_fraction, ticks, freq);
+}
+
 static void shell_prompt(void) {
     tty_write(SHELL_PROMPT);
+}
+
+static int parse_uint(const char *s, uint32_t *out_value) {
+    if (!s || !*s || !out_value) {
+        return 0;
+    }
+
+    uint32_t value = 0;
+    while (*s) {
+        if (*s < '0' || *s > '9') {
+            return 0;
+        }
+        uint32_t next = value * 10u + (uint32_t)(*s - '0');
+        if (next < value) {
+            return 0; /* overflow */
+        }
+        value = next;
+        s++;
+    }
+
+    *out_value = value;
+    return 1;
+}
+
+static int match_command(const char *line, const char *cmd, const char **arg_out) {
+    size_t i = 0;
+    while (cmd[i]) {
+        if (line[i] != cmd[i]) {
+            return 0;
+        }
+        i++;
+    }
+
+    if (line[i] == '\0') {
+        if (arg_out) {
+            *arg_out = NULL;
+        }
+        return 1;
+    }
+
+    if (line[i] != ' ') {
+        return 0;
+    }
+
+    while (line[i] == ' ') {
+        i++;
+    }
+
+    if (arg_out) {
+        *arg_out = &line[i];
+    }
+    return 1;
 }
 
 static void shell_handle_line(const char *line) {
@@ -68,11 +141,24 @@ static void shell_handle_line(const char *line) {
         tty_clear();
     } else if (str_eq(line, "ticks")) {
         shell_print_ticks();
+    } else if (str_eq(line, "uptime")) {
+        shell_print_uptime();
     } else if (str_eq(line, "mem")) {
         shell_print_memory();
     } else {
-        kprintf("Unknown command: %s\n", line);
-        shell_print_help();
+        const char *arg = NULL;
+        if (match_command(line, "sleep", &arg) && arg && *arg) {
+            uint32_t ms;
+            if (parse_uint(arg, &ms)) {
+                pit_sleep_ms(ms);
+                kprintf("Slept for %u ms\n", ms);
+            } else {
+                kprintf("Invalid duration: %s\n", arg);
+            }
+        } else {
+            kprintf("Unknown command: %s\n", line);
+            shell_print_help();
+        }
     }
 }
 
