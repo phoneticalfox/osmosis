@@ -5,7 +5,7 @@ AS      := nasm
 ASFLAGS := -f elf32 -Isrc/
 CFLAGS  ?= -ffreestanding -std=gnu99 -Wall -Wextra -Iinclude
 LDFLAGS ?= -nostdlib -T build/linker.ld
-QEMU    ?= qemu-system-i386
+QEMU    ?= ./scripts/qemu.sh
 
 ifeq ($(CROSS),)
 # Host toolchain fallback; force 32-bit output when cross tools are unavailable.
@@ -19,6 +19,7 @@ KERNEL_BIN   := build/kernel.bin
 BOOT_OBJS    := $(OBJ_DIR)/arch/i386/boot.o $(OBJ_DIR)/arch/i386/gdt.o
 KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
                 $(OBJ_DIR)/kernel/kprintf.o $(OBJ_DIR)/kernel/panic.o \
+                $(OBJ_DIR)/kernel/shell.o \
                 $(OBJ_DIR)/arch/i386/idt.o $(OBJ_DIR)/arch/i386/isr_handler.o \
                 $(OBJ_DIR)/arch/i386/isr.o $(OBJ_DIR)/arch/i386/irq.o \
                 $(OBJ_DIR)/arch/i386/irq_stubs.o $(OBJ_DIR)/arch/i386/pit.o \
