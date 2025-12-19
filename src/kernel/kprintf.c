@@ -5,6 +5,20 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+static void out_char(char c) {
+    tty_putc(c);
+    serial_write_char(c);
+}
+
+static void out_str(const char *s) {
+    if (!s) {
+        return;
+    }
+    while (*s) {
+        out_char(*s++);
+    }
+}
+
 static void print_hex(uint32_t value) {
     const char *hex_digits = "0123456789ABCDEF";
     char buffer[9];
@@ -15,8 +29,7 @@ static void print_hex(uint32_t value) {
     }
 
     buffer[8] = '\0';
-    tty_write(buffer);
-    serial_write(buffer);
+    out_str(buffer);
 }
 
 static void print_dec(int value) {
@@ -25,7 +38,7 @@ static void print_dec(int value) {
     int is_negative = value < 0;
 
     if (value == 0) {
-        tty_putc('0');
+        out_char('0');
         return;
     }
 
@@ -43,7 +56,7 @@ static void print_dec(int value) {
     }
 
     for (int i = idx - 1; i >= 0; i--) {
-        tty_putc(buffer[i]);
+        out_char(buffer[i]);
     }
 }
 
@@ -53,7 +66,7 @@ int kprintf(const char *fmt, ...) {
 
     for (const char *p = fmt; *p; p++) {
         if (*p != '%') {
-            tty_putc(*p);
+            out_char(*p);
             continue;
         }
 
@@ -61,7 +74,7 @@ int kprintf(const char *fmt, ...) {
         switch (*p) {
             case 's': {
                 const char *s = va_arg(args, const char *);
-                tty_write(s);
+                out_str(s);
                 break;
             }
             case 'x': {
@@ -76,17 +89,15 @@ int kprintf(const char *fmt, ...) {
             }
             case 'c': {
                 int c = va_arg(args, int);
-                tty_putc((char)c);
+                out_char((char)c);
                 break;
             }
             case '%':
-                tty_putc('%');
+                out_char('%');
                 break;
             default:
-                tty_putc('%');
-                tty_putc(*p);
-                serial_write_char('%');
-                serial_write_char(*p);
+                out_char('%');
+                out_char(*p);
                 break;
         }
     }

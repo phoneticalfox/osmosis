@@ -9,6 +9,7 @@
 #include "osmosis/arch/i386/keyboard.h"
 #include "osmosis/arch/i386/serial.h"
 #include "osmosis/arch/i386/qemu.h"
+#include "osmosis/shell.h"
 
 void kernel_main(void) {
     serial_init();
@@ -42,6 +43,9 @@ void kernel_main(void) {
 #ifdef CONFIG_QEMU_EXIT
     kprintf("Exiting via QEMU debug port.\n");
     qemu_exit(0);
+#else
+    kprintf("Keyboard buffer armed. Starting kernel shell.\n");
+    shell_run();
 #endif
 
     for (;;) {
