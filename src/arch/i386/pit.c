@@ -7,6 +7,7 @@
 #define PIT_CHANNEL0 0x40
 
 static volatile uint32_t pit_tick_count = 0;
+static struct pit_health current_health = {0, 0, 0};
 
 static void pit_irq_handler(struct isr_frame *frame) {
     (void)frame;
@@ -40,4 +41,16 @@ void pit_wait_ticks(uint32_t delta) {
     while (pit_tick_count < target) {
         __asm__ __volatile__("hlt");
     }
+}
+
+void pit_health_poll(void) {
+    uint32_t now = pit_tick_count;
+    uint32_t delta = now - current_health.last_snapshot;
+    current_health.last_delta = delta;
+    current_health.stalled = (delta == 0 && now != 0);
+    current_health.last_snapshot = now;
+}
+
+struct pit_health pit_health_latest(void) {
+    return current_health;
 }

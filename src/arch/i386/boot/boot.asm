@@ -15,11 +15,18 @@ align 4
     dd MULTIBOOT_FLAGS
     dd MULTIBOOT_CHECKSUM
 
+section .bss
+align 4
+multiboot_magic_store:   resd 1
+multiboot_info_store:    resd 1
+
 section .text
 global _start
 
 _start:
     cli
+    mov [multiboot_magic_store], eax
+    mov [multiboot_info_store], ebx
     lgdt [GDTR]
     mov eax, cr0
     or al, 0x1
@@ -35,6 +42,8 @@ protected_mode_start:
     mov gs, ax
     mov ss, ax
 
+    push dword [multiboot_info_store]
+    push dword [multiboot_magic_store]
     call kernel_main
 
 .halt:
