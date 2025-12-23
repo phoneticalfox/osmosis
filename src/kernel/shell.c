@@ -6,7 +6,9 @@
 #include "osmosis/kprintf.h"
 #include "osmosis/kmalloc.h"
 #include "osmosis/pmm.h"
+#include "osmosis/process.h"
 #include "osmosis/tty.h"
+#include "osmosis/vfs.h"
 #include "osmosis/arch/i386/keyboard.h"
 #include "osmosis/arch/i386/paging.h"
 #include "osmosis/arch/i386/pit.h"
@@ -40,6 +42,9 @@ static void shell_print_help(void) {
     tty_write("  heap         - Show heap allocator statistics\n");
     tty_write("  alloc_test   - Allocate and free test blocks\n");
     tty_write("  sleep <ms>   - Pause for the requested milliseconds\n");
+    tty_write("  ps           - List processes\n");
+    tty_write("  ls           - List initramfs files\n");
+    tty_write("  cat <path>   - Print an initramfs file\n");
 }
 
 static void shell_print_info(void) {
@@ -231,6 +236,10 @@ static void shell_handle_line(const char *line) {
         shell_print_heap();
     } else if (str_eq(line, "alloc_test")) {
         shell_alloc_test();
+    } else if (str_eq(line, "ps")) {
+        process_list();
+    } else if (str_eq(line, "ls")) {
+        vfs_list();
     } else {
         const char *arg = NULL;
         if (match_command(line, "sleep", &arg) && arg && *arg) {
@@ -240,6 +249,22 @@ static void shell_handle_line(const char *line) {
                 kprintf("Slept for %u ms\n", ms);
             } else {
                 kprintf("Invalid duration: %s\n", arg);
+            }
+        } else if (match_command(line, "cat", &arg) && arg && *arg) {
+            const struct vfs_node *node = vfs_lookup(arg);
+            if (!node) {
+                kprintf("cat: not found: %s\n", arg);
+            } else {
+                char buf[128];
+                uint32_t offset = 0;
+                int read;
+                while ((read = vfs_read(node, offset, buf, sizeof(buf))) > 0) {
+                    for (int i = 0; i < read; i++) {
+                        tty_putc(buf[i]);
+                    }
+                    offset += (uint32_t)read;
+                }
+                tty_putc('\n');
             }
         } else {
             kprintf("Unknown command: %s\n", line);

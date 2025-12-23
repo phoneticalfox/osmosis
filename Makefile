@@ -6,6 +6,7 @@ ASFLAGS := -f elf32 -Isrc/
 CFLAGS  ?= -ffreestanding -std=gnu99 -Wall -Wextra -Iinclude
 LDFLAGS ?= -nostdlib -T build/linker.ld
 QEMU    ?= ./scripts/qemu.sh
+.ONESHELL:
 
 ifeq ($(CROSS),)
 # Host toolchain fallback; force 32-bit output when cross tools are unavailable.

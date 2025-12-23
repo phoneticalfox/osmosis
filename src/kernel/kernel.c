@@ -60,15 +60,12 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     kprintf("User mode demo completed (exit=%d).\n", user_exit);
     kprintf("\n\"Correctness First, Clarity Always.\"\n");
 
-#ifdef CONFIG_QEMU_EXIT
-    kprintf("Exiting via QEMU debug port.\n");
-    qemu_exit(0);
-#else
-    kprintf("Kernel shell ready. Type 'help' for commands.\n");
-    shell_run();
-#endif
-
-    for (;;) {
-        __asm__ __volatile__("hlt");
+    int demo_pid = userland_bootstrap_demo();
+    if (demo_pid < 0) {
+        kprintf("Failed to start demo process.\n");
+        userland_finished();
+        return;
     }
+    kprintf("User demo pid=%d staged; entering scheduler.\n", demo_pid);
+    process_enter_first();
 }
