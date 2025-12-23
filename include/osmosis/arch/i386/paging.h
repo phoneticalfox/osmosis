@@ -2,6 +2,7 @@
 #define OSMOSIS_ARCH_I386_PAGING_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define PAGE_SIZE 4096u
 
@@ -26,5 +27,6 @@ int paging_unmap(uintptr_t virt);
 uintptr_t paging_resolve(uintptr_t virt);
 int paging_enabled(void);
 struct paging_stats paging_get_stats(void);
+int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags);
 
 #endif

@@ -40,6 +40,28 @@ static inline uintptr_t align_up(uintptr_t value, uintptr_t align) {
     return (value + align - 1u) & ~(align - 1u);
 }
 
+static inline uintptr_t align_down(uintptr_t value, uintptr_t align) {
+    return value & ~(align - 1u);
+}
+
+static uintptr_t highest_usable(const struct boot_info *boot) {
+    if (!boot) {
+        return 0;
+    }
+    uintptr_t max_addr = 0;
+    for (uint32_t i = 0; i < boot->region_count; i++) {
+        const struct boot_memory_region *region = &boot->regions[i];
+        if (region->type != BOOT_MEMORY_USABLE) {
+            continue;
+        }
+        uintptr_t end = (uintptr_t)(region->base + region->length);
+        if (end > max_addr) {
+            max_addr = end;
+        }
+    }
+    return max_addr;
+}
+
 static struct page_table *alloc_page_table(void) {
     uintptr_t frame = pmm_alloc_frame();
     if (!frame) {
@@ -206,6 +228,41 @@ uintptr_t paging_resolve(uintptr_t virt) {
     }
 
     return (page_entry & PAGE_ALIGN_MASK) | (virt & (PAGE_SIZE - 1u));
+}
+
+int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags) {
+    if (len == 0) {
+        return 0;
+    }
+
+    uintptr_t end = align_up(virt + len, PAGE_SIZE);
+    if (end < virt) { /* overflow */
+        return 0;
+    }
+    uintptr_t start = virt & PAGE_ALIGN_MASK;
+
+    for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+        uint32_t d_index = pd_index(addr);
+        uint32_t pd_entry = page_directory[d_index];
+        if (!(pd_entry & PAGE_PRESENT)) {
+            return 0;
+        }
+        if ((flags & PAGE_USER) && !(pd_entry & PAGE_USER)) {
+            return 0;
+        }
+
+        struct page_table *table = (struct page_table *)(pd_entry & PAGE_ALIGN_MASK);
+        uint32_t t_index = pt_index(addr);
+        uint32_t pt_entry = table->entries[t_index];
+        if (!(pt_entry & PAGE_PRESENT)) {
+            return 0;
+        }
+        if ((flags & PAGE_USER) && !(pt_entry & PAGE_USER)) {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 int paging_enabled(void) {
