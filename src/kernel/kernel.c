@@ -14,16 +14,6 @@
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
 
-static void print_memory_map(const struct boot_info *boot) {
-    kprintf("Memory map (%d entr%s):\n", boot->region_count, boot->region_count == 1 ? "y" : "ies");
-    for (uint32_t i = 0; i < boot->region_count; i++) {
-        const struct boot_memory_region *r = &boot->regions[i];
-        uint32_t base_mb = (uint32_t)(r->base / (1024 * 1024));
-        uint32_t len_mb = (uint32_t)(r->length / (1024 * 1024));
-        kprintf("  [%d] base=%d MB len=%d MB type=%d\n", i, base_mb, len_mb, r->type);
-    }
-}
-
 void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     serial_init();
     tty_init();
@@ -41,11 +31,12 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     kprintf("Kernel Version: 0.1\n");
     kprintf("Mode: 32-bit Protected\n");
     kprintf("VGA Buffer: 0x%x\n", VGA_MEMORY);
-    print_memory_map(boot);
+    boot_print_memory_map(boot);
 
     kprintf("IRQ routing: PIC remapped to %d-%d\n", IRQ_BASE, IRQ_MAX);
     kprintf("Keyboard: PS/2 set 1 (IRQ1)\n");
     pmm_init(boot);
+    shell_init(boot);
 
     irq_enable();
 
