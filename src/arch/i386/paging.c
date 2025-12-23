@@ -40,31 +40,8 @@ static inline uintptr_t align_up(uintptr_t value, uintptr_t align) {
     return (value + align - 1u) & ~(align - 1u);
 }
 
-static inline uintptr_t align_down(uintptr_t value, uintptr_t align) {
-    return value & ~(align - 1u);
-}
-
-static uintptr_t highest_usable(const struct boot_info *boot) {
-    uintptr_t max_addr = 0;
-    if (!boot) {
-        return 0;
-    }
-
-    for (uint32_t i = 0; i < boot->region_count; i++) {
-        const struct boot_memory_region *region = &boot->regions[i];
-        if (region->type != BOOT_MEMORY_USABLE) {
-            continue;
-        }
-        uintptr_t end = (uintptr_t)(region->base + region->length);
-        if (end > max_addr) {
-            max_addr = end;
-        }
-    }
-    return max_addr;
-}
-
 static struct page_table *alloc_page_table(void) {
-    uintptr_t frame = pmm_alloc_frame_below(identity_limit);
+    uintptr_t frame = pmm_alloc_frame();
     if (!frame) {
         return NULL;
     }
