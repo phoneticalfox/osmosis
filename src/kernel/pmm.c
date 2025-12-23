@@ -135,6 +135,29 @@ uintptr_t pmm_alloc_frame(void) {
     return 0;
 }
 
+uintptr_t pmm_alloc_frame_below(uintptr_t max_addr) {
+    if (max_addr == 0) {
+        return 0;
+    }
+
+    uint32_t limit_frame = (uint32_t)(max_addr / FRAME_SIZE);
+    if (limit_frame > frame_count) {
+        limit_frame = frame_count;
+    }
+
+    for (uint32_t frame = 0; frame < limit_frame; frame++) {
+        if (!frame_test(frame)) {
+            frame_set(frame);
+            if (free_frame_count > 0) {
+                free_frame_count--;
+            }
+            return (uintptr_t)frame * FRAME_SIZE;
+        }
+    }
+
+    return 0;
+}
+
 void pmm_free_frame(uintptr_t addr) {
     uint32_t frame = (uint32_t)(addr / FRAME_SIZE);
     if (frame >= frame_count) {

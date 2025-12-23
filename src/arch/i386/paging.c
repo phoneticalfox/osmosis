@@ -118,26 +118,34 @@ void paging_init(const struct boot_info *boot) {
     allocated_tables = 0;
     paging_on = 0;
 
-    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
-        page_directory[i] = 0;
-    }
-
     uintptr_t base_limit = align_up((uintptr_t)_kernel_end, PAGE_SIZE);
     if (base_limit < PAGE_SIZE * 4u) {
-        base_limit = PAGE_SIZE * 4u; /* Keep first 16 KiB mapped for IVT/stack slack. */
+        base_limit = PAGE_SIZE * 4u; /* keep IVT + early stack safe */
     }
 
-    uintptr_t max_identity = IDENTITY_MAP_LIMIT;
-    if (boot && boot->mem_upper_kb) {
-        uintptr_t reported_top = ((uintptr_t)boot->mem_upper_kb + 1024u) * 1024u;
-        if (reported_top && reported_top < max_identity) {
-            max_identity = reported_top;
-        }
+    uintptr_t usable_top = highest_usable(boot);
+    uintptr_t upper_bound = IDENTITY_MAP_LIMIT;
+    if (usable_top && usable_top < upper_bound) {
+        upper_bound = usable_top;
+    }
+    if (!upper_bound) {
+        upper_bound = IDENTITY_MAP_LIMIT;
+    }
+    upper_bound = align_down(upper_bound, PAGE_SIZE);
+
+    uintptr_t minimum = base_limit + PAGE_SIZE; /* cover first free frame for tables */
+    if (minimum < PAGE_SIZE * 4u) {
+        minimum = PAGE_SIZE * 4u;
     }
 
-    identity_limit = base_limit;
-    if (identity_limit > max_identity) {
-        identity_limit = max_identity;
+    identity_limit = upper_bound;
+    if (identity_limit < minimum) {
+        identity_limit = minimum;
+    }
+    identity_limit = align_down(identity_limit, PAGE_SIZE);
+
+    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
+        page_directory[i] = 0;
     }
 
     identity_map_range(0, identity_limit);
