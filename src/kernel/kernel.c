@@ -10,7 +10,9 @@
 #include "osmosis/boot.h"
 #include "osmosis/kprintf.h"
 #include "osmosis/panic.h"
+#include "osmosis/arch/i386/paging.h"
 #include "osmosis/pmm.h"
+#include "osmosis/kmalloc.h"
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
 
@@ -36,6 +38,8 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     kprintf("IRQ routing: PIC remapped to %d-%d\n", IRQ_BASE, IRQ_MAX);
     kprintf("Keyboard: PS/2 set 1 (IRQ1)\n");
     pmm_init(boot);
+    paging_init(boot);
+    kmalloc_init();
     shell_init(boot);
 
     irq_enable();
