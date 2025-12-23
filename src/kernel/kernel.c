@@ -7,6 +7,9 @@
 #include "osmosis/arch/i386/keyboard.h"
 #include "osmosis/arch/i386/serial.h"
 #include "osmosis/arch/i386/qemu.h"
+#include "osmosis/arch/i386/segments.h"
+#include "osmosis/arch/i386/syscall.h"
+#include "osmosis/arch/i386/tss.h"
 #include "osmosis/boot.h"
 #include "osmosis/kprintf.h"
 #include "osmosis/panic.h"
@@ -15,6 +18,7 @@
 #include "osmosis/kmalloc.h"
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
+#include "osmosis/userland.h"
 
 void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     serial_init();
@@ -40,6 +44,8 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     pmm_init(boot);
     paging_init(boot);
     kmalloc_init();
+    tss_init(KERNEL_BOOT_STACK_TOP);
+    syscall_init();
     shell_init(boot);
 
     irq_enable();
@@ -50,6 +56,8 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
 
     kprintf("Timer heartbeat detected (%d ticks, delta=%d, stalled=%d).\n",
             pit_ticks(), health.last_delta, health.stalled);
+    int user_exit = userland_run_demo();
+    kprintf("User mode demo completed (exit=%d).\n", user_exit);
     kprintf("\n\"Correctness First, Clarity Always.\"\n");
 
 #ifdef CONFIG_QEMU_EXIT
