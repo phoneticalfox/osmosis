@@ -1,13 +1,25 @@
 ; OS/mosis GDT Definition
-KERNEL_CODE_SEG equ 0x08
-KERNEL_DATA_SEG equ 0x10
+; Correctness First. Clarity Always.
+
+%define KERNEL_CODE_SEG 0x08
+%define KERNEL_DATA_SEG 0x10
+%define USER_CODE_SEG   0x18
+%define USER_DATA_SEG   0x20
+%define TSS_SEG         0x28
 
 section .data
 align 8
+global GDT_START
+global GDT_END
+global GDTR
+
 GDT_START:
-    dd 0x0, 0x0                                     ; NULL Descriptor
-    dw 0xFFFF, 0x0000, 0x9A00, 0x00CF               ; CODE: Base 0, Limit 4GB, Ring 0
-    dw 0xFFFF, 0x0000, 0x9200, 0x00CF               ; DATA: Base 0, Limit 4GB, Ring 0
+    dq 0x0000000000000000          ; Null descriptor
+    dq 0x00CF9A000000FFFF          ; Kernel code: base=0 limit=4GiB
+    dq 0x00CF92000000FFFF          ; Kernel data: base=0 limit=4GiB
+    dq 0x00CFFA000000FFFF          ; User code:   base=0 limit=4GiB (DPL=3)
+    dq 0x00CFF2000000FFFF          ; User data:   base=0 limit=4GiB (DPL=3)
+    dq 0x0000000000000000          ; TSS placeholder (patched at runtime)
 GDT_END:
 
 GDTR:
