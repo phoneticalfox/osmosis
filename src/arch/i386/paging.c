@@ -288,7 +288,7 @@ int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags) {
 
     for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
         uint32_t d_index = pd_index(addr);
-        uint32_t pd_entry = current_directory[d_index];
+        uint32_t pd_entry = page_directory[d_index];
         if (!(pd_entry & PAGE_PRESENT)) {
             return 0;
         }

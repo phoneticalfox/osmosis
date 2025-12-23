@@ -22,8 +22,7 @@ KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
                 $(OBJ_DIR)/kernel/kprintf.o $(OBJ_DIR)/kernel/panic.o \
                 $(OBJ_DIR)/kernel/shell.o $(OBJ_DIR)/kernel/boot.o \
                 $(OBJ_DIR)/kernel/pmm.o $(OBJ_DIR)/kernel/kmalloc.o \
-                $(OBJ_DIR)/kernel/userland.o $(OBJ_DIR)/kernel/process.o \
-                $(OBJ_DIR)/kernel/vfs.o \
+                $(OBJ_DIR)/kernel/userland.o \
                 $(OBJ_DIR)/arch/i386/idt.o $(OBJ_DIR)/arch/i386/isr_handler.o \
                 $(OBJ_DIR)/arch/i386/isr.o $(OBJ_DIR)/arch/i386/irq.o \
                 $(OBJ_DIR)/arch/i386/irq_stubs.o $(OBJ_DIR)/arch/i386/pit.o \
@@ -34,10 +33,8 @@ KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
 
 USER_ELF     := build/user/hello_user.elf
 USER_BLOB    := $(OBJ_DIR)/user/hello_user_blob.o
-INITRAMFS_BIN := build/initramfs.bin
-INITRAMFS_OBJ := $(OBJ_DIR)/initramfs.o
 
-OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(USER_BLOB) $(INITRAMFS_OBJ)
+OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(USER_BLOB)
 
 all: $(KERNEL_BIN)
 
@@ -96,13 +93,6 @@ $(OBJ_DIR)/user/hello_user_blob.o: $(USER_ELF) | $(OBJ_DIR)/user
 $(USER_ELF): user/hello_user.c user/linker.ld | build/user
 	$(CC) $(CFLAGS) -ffreestanding -fno-pic -fno-pie -fno-stack-protector -nostdlib -no-pie -Wl,-T,user/linker.ld -o $@ $<
 
-$(INITRAMFS_OBJ): $(INITRAMFS_BIN) | $(OBJ_DIR)
-	objcopy -I binary -O elf32-i386 -B i386 $< $@
-	objcopy --add-section .note.GNU-stack=/dev/null --set-section-flags .note.GNU-stack=readonly $@
-
-$(INITRAMFS_BIN): $(USER_ELF) initramfs/hello.txt | build
-	python scripts/mkinitramfs.py $@ $(USER_ELF) initramfs/hello.txt
-
 $(OBJ_DIR):
 	@mkdir -p $@
 
@@ -116,9 +106,6 @@ $(OBJ_DIR)/user: | $(OBJ_DIR)
 	@mkdir -p $@
 
 build/user:
-	@mkdir -p $@
-
-build:
 	@mkdir -p $@
 
 clean:

@@ -19,28 +19,6 @@
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
 #include "osmosis/userland.h"
-#include "osmosis/process.h"
-#include "osmosis/vfs.h"
-
-extern const uint8_t _binary_build_initramfs_bin_start[];
-extern const uint8_t _binary_build_initramfs_bin_end[];
-
-static void userland_finished(void) {
-    kprintf("All user processes exited.\n");
-    kprintf("\n\"Correctness First, Clarity Always.\"\n");
-
-#ifdef CONFIG_QEMU_EXIT
-    kprintf("Exiting via QEMU debug port.\n");
-    qemu_exit(0);
-#else
-    kprintf("Kernel shell ready. Type 'help' for commands.\n");
-    shell_run();
-#endif
-
-    for (;;) {
-        __asm__ __volatile__("hlt");
-    }
-}
 
 void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     serial_init();
@@ -66,10 +44,6 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     pmm_init(boot);
     paging_init(boot);
     kmalloc_init();
-    vfs_init(_binary_build_initramfs_bin_start,
-             (uint32_t)(uintptr_t)(_binary_build_initramfs_bin_end - _binary_build_initramfs_bin_start));
-    process_init();
-    process_set_idle_callback(userland_finished);
     tss_init(KERNEL_BOOT_STACK_TOP);
     syscall_init();
     shell_init(boot);
@@ -82,6 +56,9 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
 
     kprintf("Timer heartbeat detected (%d ticks, delta=%d, stalled=%d).\n",
             pit_ticks(), health.last_delta, health.stalled);
+    int user_exit = userland_run_demo();
+    kprintf("User mode demo completed (exit=%d).\n", user_exit);
+    kprintf("\n\"Correctness First, Clarity Always.\"\n");
 
     int demo_pid = userland_bootstrap_demo();
     if (demo_pid < 0) {
