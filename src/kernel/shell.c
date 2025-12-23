@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "osmosis/shell.h"
+#include "osmosis/boot.h"
 #include "osmosis/kprintf.h"
 #include "osmosis/pmm.h"
 #include "osmosis/tty.h"
@@ -10,6 +11,8 @@
 
 #define SHELL_PROMPT "osmosis> "
 #define SHELL_MAX_INPUT 128
+
+static const struct boot_info *boot_info_ref = NULL;
 
 static int str_eq(const char *a, const char *b) {
     while (*a && *b) {
@@ -27,6 +30,7 @@ static void shell_print_help(void) {
     tty_write("  help         - Show this help text\n");
     tty_write("  info         - Show kernel build and tick status\n");
     tty_write("  clear        - Clear the screen\n");
+    tty_write("  memmap       - Show the bootloader-provided memory map\n");
     tty_write("  ticks        - Show PIT health snapshot\n");
     tty_write("  uptime       - Show PIT-tracked uptime\n");
     tty_write("  mem          - Show physical memory statistics\n");
@@ -145,6 +149,8 @@ static void shell_handle_line(const char *line) {
         shell_print_uptime();
     } else if (str_eq(line, "mem")) {
         shell_print_memory();
+    } else if (str_eq(line, "memmap")) {
+        boot_print_memory_map(boot_info_ref);
     } else {
         const char *arg = NULL;
         if (match_command(line, "sleep", &arg) && arg && *arg) {
@@ -160,6 +166,10 @@ static void shell_handle_line(const char *line) {
             shell_print_help();
         }
     }
+}
+
+void shell_init(const struct boot_info *boot) {
+    boot_info_ref = boot;
 }
 
 void shell_run(void) {

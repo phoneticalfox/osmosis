@@ -29,5 +29,7 @@ struct boot_info {
 };
 
 const struct boot_info *boot_info_init(uint32_t magic, const struct multiboot_info *mb_info);
+const char *boot_memory_type_name(uint32_t type);
+void boot_print_memory_map(const struct boot_info *boot);
 
 #endif

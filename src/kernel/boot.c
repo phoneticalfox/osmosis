@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "osmosis/boot.h"
+#include "osmosis/kprintf.h"
 #include "osmosis/panic.h"
 
 static struct boot_info boot_state;
@@ -55,4 +56,34 @@ const struct boot_info *boot_info_init(uint32_t magic, const struct multiboot_in
     boot_store_mmap(mb_info);
 
     return &boot_state;
+}
+
+const char *boot_memory_type_name(uint32_t type) {
+    switch (type) {
+        case BOOT_MEMORY_USABLE:
+            return "usable";
+        case BOOT_MEMORY_RESERVED:
+            return "reserved";
+        default:
+            return "other";
+    }
+}
+
+void boot_print_memory_map(const struct boot_info *boot) {
+    if (!boot) {
+        kprintf("Memory map: unavailable (no boot info)\n");
+        return;
+    }
+
+    kprintf("Memory map (%u entr%s):\n",
+            boot->region_count,
+            boot->region_count == 1 ? "y" : "ies");
+
+    for (uint32_t i = 0; i < boot->region_count; i++) {
+        const struct boot_memory_region *r = &boot->regions[i];
+        uint32_t base_mb = (uint32_t)(r->base / (1024 * 1024));
+        uint32_t len_mb = (uint32_t)(r->length / (1024 * 1024));
+        kprintf("  [%u] base=%u MB len=%u MB type=%s (%u)\n",
+                i, base_mb, len_mb, boot_memory_type_name(r->type), r->type);
+    }
 }
