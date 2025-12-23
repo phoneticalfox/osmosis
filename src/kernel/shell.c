@@ -4,9 +4,11 @@
 #include "osmosis/shell.h"
 #include "osmosis/boot.h"
 #include "osmosis/kprintf.h"
+#include "osmosis/kmalloc.h"
 #include "osmosis/pmm.h"
 #include "osmosis/tty.h"
 #include "osmosis/arch/i386/keyboard.h"
+#include "osmosis/arch/i386/paging.h"
 #include "osmosis/arch/i386/pit.h"
 
 #define SHELL_PROMPT "osmosis> "
@@ -34,6 +36,9 @@ static void shell_print_help(void) {
     tty_write("  ticks        - Show PIT health snapshot\n");
     tty_write("  uptime       - Show PIT-tracked uptime\n");
     tty_write("  mem          - Show physical memory statistics\n");
+    tty_write("  paging       - Show paging status\n");
+    tty_write("  heap         - Show heap allocator statistics\n");
+    tty_write("  alloc_test   - Allocate and free test blocks\n");
     tty_write("  sleep <ms>   - Pause for the requested milliseconds\n");
 }
 
@@ -60,6 +65,75 @@ static void shell_print_memory(void) {
     uint32_t free_frames = pmm_free_frames();
     kprintf("Physical memory: total=%u KiB free=%u KiB (%u/%u frames free)\n",
             (total_frames * 4), (free_frames * 4), free_frames, total_frames);
+}
+
+static void shell_print_paging(void) {
+    struct paging_stats stats = paging_get_stats();
+    kprintf("Paging: %s (CR3=0x%x)\n",
+            stats.enabled ? "enabled" : "disabled",
+            (uint32_t)stats.page_directory_phys);
+    kprintf("Identity map: [0x%x, 0x%x) mapped_pages=%u tables=%u\n",
+            (uint32_t)stats.identity_base,
+            (uint32_t)stats.identity_limit,
+            stats.mapped_pages,
+            stats.page_table_count);
+}
+
+static void shell_print_heap(void) {
+    struct kmalloc_stats stats = kmalloc_get_stats();
+    kprintf("Heap: base=0x%x limit=0x%x top=0x%x mapped=%u bytes free_list=%u bytes\n",
+            (uint32_t)stats.heap_base, (uint32_t)stats.heap_limit,
+            (uint32_t)stats.heap_top, (uint32_t)stats.mapped_bytes,
+            (uint32_t)stats.free_bytes);
+    kprintf("Allocations: total=%u frees=%u\n",
+            stats.total_allocs, stats.total_frees);
+}
+
+static void shell_alloc_test(void) {
+    kprintf("Running heap allocation test...\n");
+    void *a = kmalloc(64);
+    void *b = kmalloc(128);
+    void *c = kmalloc(32);
+
+    if (!a || !b || !c) {
+        kprintf("Allocation failure (a=%p b=%p c=%p)\n", a, b, c);
+        return;
+    }
+
+    /* Touch memory to ensure mapping. */
+    uint8_t *pa = (uint8_t *)a;
+    uint8_t *pb = (uint8_t *)b;
+    uint8_t *pc = (uint8_t *)c;
+    for (int i = 0; i < 64; i++) {
+        pa[i] = (uint8_t)i;
+    }
+    for (int i = 0; i < 128; i++) {
+        pb[i] = (uint8_t)(i + 1);
+    }
+    for (int i = 0; i < 32; i++) {
+        pc[i] = 0xAA;
+    }
+
+    /* Verify a small sample. */
+    int ok = 1;
+    for (int i = 0; i < 64; i++) {
+        if (pa[i] != (uint8_t)i) {
+            ok = 0;
+            break;
+        }
+    }
+    if (ok && pb[5] != 6) {
+        ok = 0;
+    }
+    if (ok && pc[10] != 0xAA) {
+        ok = 0;
+    }
+
+    kfree(a);
+    kfree(b);
+    kfree(c);
+
+    kprintf("Heap test %s (a=%p b=%p c=%p)\n", ok ? "passed" : "failed", a, b, c);
 }
 
 static void shell_print_uptime(void) {
@@ -151,6 +225,12 @@ static void shell_handle_line(const char *line) {
         shell_print_memory();
     } else if (str_eq(line, "memmap")) {
         boot_print_memory_map(boot_info_ref);
+    } else if (str_eq(line, "paging")) {
+        shell_print_paging();
+    } else if (str_eq(line, "heap")) {
+        shell_print_heap();
+    } else if (str_eq(line, "alloc_test")) {
+        shell_alloc_test();
     } else {
         const char *arg = NULL;
         if (match_command(line, "sleep", &arg) && arg && *arg) {

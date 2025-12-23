@@ -20,11 +20,12 @@ BOOT_OBJS    := $(OBJ_DIR)/arch/i386/boot.o $(OBJ_DIR)/arch/i386/gdt.o
 KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
                 $(OBJ_DIR)/kernel/kprintf.o $(OBJ_DIR)/kernel/panic.o \
                 $(OBJ_DIR)/kernel/shell.o $(OBJ_DIR)/kernel/boot.o \
-                $(OBJ_DIR)/kernel/pmm.o \
+                $(OBJ_DIR)/kernel/pmm.o $(OBJ_DIR)/kernel/kmalloc.o \
                 $(OBJ_DIR)/arch/i386/idt.o $(OBJ_DIR)/arch/i386/isr_handler.o \
                 $(OBJ_DIR)/arch/i386/isr.o $(OBJ_DIR)/arch/i386/irq.o \
                 $(OBJ_DIR)/arch/i386/irq_stubs.o $(OBJ_DIR)/arch/i386/pit.o \
                 $(OBJ_DIR)/arch/i386/keyboard.o $(OBJ_DIR)/arch/i386/serial.o \
+                $(OBJ_DIR)/arch/i386/paging.o \
                 $(OBJ_DIR)/arch/i386/qemu.o
 
 OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
@@ -62,6 +63,9 @@ $(OBJ_DIR)/arch/i386/keyboard.o: src/arch/i386/keyboard.c include/osmosis/arch/i
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/arch/i386/serial.o: src/arch/i386/serial.c include/osmosis/arch/i386/serial.h include/osmosis/arch/i386/io.h | $(OBJ_DIR)/arch/i386
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/arch/i386/paging.o: src/arch/i386/paging.c include/osmosis/arch/i386/paging.h include/osmosis/boot.h include/osmosis/pmm.h | $(OBJ_DIR)/arch/i386
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/arch/i386/qemu.o: src/arch/i386/qemu.c include/osmosis/arch/i386/qemu.h include/osmosis/arch/i386/io.h | $(OBJ_DIR)/arch/i386
