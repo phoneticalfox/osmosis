@@ -19,6 +19,7 @@
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
 #include "osmosis/userland.h"
+#include "osmosis/process.h"
 
 void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     serial_init();

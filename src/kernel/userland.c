@@ -4,6 +4,7 @@
 #include "osmosis/arch/i386/segments.h"
 #include "osmosis/kprintf.h"
 #include "osmosis/pmm.h"
+#include "osmosis/process.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -280,4 +281,27 @@ int userland_run_demo(void) {
 user_return:
     kprintf("userland: demo exited with code %d\n", user_state.exit_code);
     return user_state.exit_code;
+}
+
+int userland_bootstrap_demo(void) {
+    return -1;
+}
+
+void userland_finished(void) {
+}
+
+int userland_load_elf_into(const uint8_t *image, uint32_t size, uint32_t *directory, struct process_image *out) {
+    (void)image;
+    (void)size;
+    (void)directory;
+    (void)out;
+    return 0;
+}
+
+int userland_clone_region(uint32_t *src_directory, uint32_t *dst_directory, uintptr_t low, uintptr_t high) {
+    (void)src_directory;
+    (void)dst_directory;
+    (void)low;
+    (void)high;
+    return 0;
 }
