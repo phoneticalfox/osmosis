@@ -22,7 +22,8 @@ KERNEL_OBJS  := $(OBJ_DIR)/kernel/kernel.o $(OBJ_DIR)/kernel/tty.o \
                 $(OBJ_DIR)/kernel/kprintf.o $(OBJ_DIR)/kernel/panic.o \
                 $(OBJ_DIR)/kernel/shell.o $(OBJ_DIR)/kernel/boot.o \
                 $(OBJ_DIR)/kernel/pmm.o $(OBJ_DIR)/kernel/kmalloc.o \
-                $(OBJ_DIR)/kernel/userland.o \
+                $(OBJ_DIR)/kernel/userland.o $(OBJ_DIR)/kernel/process.o \
+                $(OBJ_DIR)/kernel/vfs.o \
                 $(OBJ_DIR)/arch/i386/idt.o $(OBJ_DIR)/arch/i386/isr_handler.o \
                 $(OBJ_DIR)/arch/i386/isr.o $(OBJ_DIR)/arch/i386/irq.o \
                 $(OBJ_DIR)/arch/i386/irq_stubs.o $(OBJ_DIR)/arch/i386/pit.o \

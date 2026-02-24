@@ -22,12 +22,17 @@ struct paging_stats {
 };
 
 void paging_init(const struct boot_info *boot);
+uint32_t *paging_current_directory(void);
+void paging_switch_directory(uint32_t *dir);
+uint32_t *paging_create_address_space(void);
 int paging_map(uintptr_t virt, uintptr_t phys, uint32_t flags);
+int paging_map_in(uint32_t *directory, uintptr_t virt, uintptr_t phys, uint32_t flags);
 int paging_unmap(uintptr_t virt);
 uintptr_t paging_resolve(uintptr_t virt);
+uintptr_t paging_resolve_in(uint32_t *directory, uintptr_t virt);
 int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags);
 int paging_enabled(void);
 struct paging_stats paging_get_stats(void);
-int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags);
+uintptr_t paging_identity_limit_value(void);
 
 #endif
