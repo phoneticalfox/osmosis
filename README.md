@@ -31,8 +31,8 @@ Read the expanded [Manifesto](manifesto.md) for the full oath, the tone, and the
 - `build/obj/` — Generated object files (created during the build).
 - `docs/` — Roadmap, structure, and rules for kernel/userland integration.
 
-### Legacy files
-The repository root still contains the earliest single-file kernel artifacts (`boot.asm`, `gdt.asm`, `kernel.c`, `idt.c`, etc.) and a preserved snapshot under `legacy/osmosis_repo/`. They remain for comparison and teaching; the active build uses the `src/` + `include/` layout above.
+### Legacy snapshot
+The preserved single-file kernel snapshot now lives under `legacy/osmosis_repo/`. The active build uses the `src/` + `include/` layout above, and the repository root is kept for current project scaffolding and documentation.
 
 ## Quick start
 Build with a cross i686-elf toolchain (`nasm`, `i686-elf-gcc`, `i686-elf-ld`) by setting `CROSS=i686-elf-`:
