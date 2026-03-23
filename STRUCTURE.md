@@ -7,8 +7,9 @@ The active repository root now carries current scaffolding and documentation: id
 1. Documentation & philosophy
 - `README.md`: Public-facing project overview, current status, and long-term direction.
 - `manifesto.md`: The constitutional principles of the system.
-- `AGENTS.md`: Guidance for human and automated contributors; preserves intent, wording discipline, and architectural truthfulness.
+- `AGENTS.md`: Guidance for human and automated contributors; preserves intent, wording discipline, architectural truthfulness, and platform-direction discipline.
 - `docs/ROADMAP.md`: Strategic sequencing from freestanding kernel seed toward a Unix-derivative future.
+- `docs/PLATFORM.md`: Platform and architecture direction from i386 bring-up toward a modern x86_64 daily-driver target.
 - `docs/`: Additional roadmap and architecture notes.
 2. Boot & hardware (assembly)
 - `src/arch/i386/boot/boot.asm`: Stage-0 entry and Protected Mode transition.
@@ -26,7 +27,7 @@ The active repository root now carries current scaffolding and documentation: id
 The frozen single-file kernel snapshot lives under `legacy/osmosis_repo/`. It is preserved for comparison and teaching, but it is not the active build target.
 
 ## Directional note
-Today, the active tree is a freestanding kernel seed with a co-designed kernel/userland philosophy. Long-term, the project direction is toward a Unix-derivative system with FreeBSD as the intended lineage anchor. That direction should guide roadmap and interface decisions, but documentation must not present the current tree as already possessing that lineage before the code and provenance justify the claim.
+Today, the active tree is a freestanding 32-bit kernel seed with a co-designed kernel/userland philosophy. Long-term, the project direction is toward a Unix-derivative, modern 64-bit daily-driver system with FreeBSD as the intended lineage anchor. That direction should guide roadmap, architecture, and interface decisions, but documentation must not present the current tree as already possessing that maturity before the code and provenance justify the claim.
 
 ## Implementation details
 All active C components are built with `-ffreestanding -nostdlib`, and assembly sources use NASM. The linker script keeps the kernel start at `0x100000` for common bootloader compatibility.
