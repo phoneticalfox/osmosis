@@ -1,8 +1,8 @@
 #include "osmosis/arch/i386/idt.h"
 #include "osmosis/arch/i386/isr.h"
+#include "osmosis/arch/i386/segments.h"
 
 #define IDT_ENTRIES 256
-#define KERNEL_CODE_SELECTOR 0x08
 #define IDT_FLAG_PRESENT 0x80
 #define IDT_FLAG_INT_GATE_32 0x0E
 #define IDT_FLAG_RING0 0x00

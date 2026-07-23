@@ -4,6 +4,5 @@
 #define OSMOSIS_SYS_WRITE 0
 #define OSMOSIS_SYS_EXIT  1
 #define OSMOSIS_SYS_GETPID 2
-#define OSMOSIS_SYS_BRK   3
 
 #endif

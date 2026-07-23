@@ -33,7 +33,7 @@ struct tss_entry {
     uint16_t iomap_base;
 } __attribute__((packed));
 
-void tss_init(uint32_t kernel_stack_top);
+void tss_init(void);
 void tss_set_kernel_stack(uint32_t kernel_stack_top);
 
 #endif

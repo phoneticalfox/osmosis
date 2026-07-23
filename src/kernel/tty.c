@@ -49,6 +49,13 @@ void tty_putc(char c) {
         tty.y++;
     } else if (c == '\r') {
         tty.x = 0;
+    } else if (c == '\b') {
+        if (tty.x > 0) {
+            tty.x--;
+        } else if (tty.y > 0) {
+            tty.y--;
+            tty.x = VGA_WIDTH - 1;
+        }
     } else {
         tty.buffer[tty.y * VGA_WIDTH + tty.x] = vga_entry(c, tty.color);
         tty.x++;

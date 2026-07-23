@@ -3,6 +3,7 @@
 #include "osmosis/arch/i386/irq.h"
 
 #define PIT_INPUT_HZ 1193182
+#define PIT_MAX_DIVISOR 65536u
 #define PIT_COMMAND  0x43
 #define PIT_CHANNEL0 0x40
 
@@ -23,12 +24,16 @@ void pit_init(uint32_t frequency_hz) {
     uint32_t divisor = PIT_INPUT_HZ / frequency_hz;
     if (divisor == 0) {
         divisor = 1; /* Clamp so the PIT always receives a valid divisor. */
+    } else if (divisor > PIT_MAX_DIVISOR) {
+        divisor = PIT_MAX_DIVISOR;
     }
+
+    uint16_t reload = divisor == PIT_MAX_DIVISOR ? 0 : (uint16_t)divisor;
 
     /* Channel 0, lobyte/hibyte access, mode 3 (square wave), binary. */
     outb(PIT_COMMAND, 0x36);
-    outb(PIT_CHANNEL0, (uint8_t)(divisor & 0xFF));
-    outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8) & 0xFF));
+    outb(PIT_CHANNEL0, (uint8_t)(reload & 0xFFu));
+    outb(PIT_CHANNEL0, (uint8_t)(reload >> 8));
 
     irq_install_handler(0, pit_irq_handler);
     pit_current_frequency_hz = PIT_INPUT_HZ / divisor;
@@ -43,8 +48,8 @@ uint32_t pit_ticks(void) {
 }
 
 void pit_wait_ticks(uint32_t delta) {
-    uint32_t target = pit_tick_count + delta;
-    while (pit_tick_count < target) {
+    uint32_t start = pit_tick_count;
+    while ((uint32_t)(pit_tick_count - start) < delta) {
         __asm__ __volatile__("hlt");
     }
 }

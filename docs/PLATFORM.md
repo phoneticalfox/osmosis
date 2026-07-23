@@ -18,7 +18,7 @@ For platform direction, that currently implies:
 ## What “32-bit seed” means
 The current i386 implementation is:
 - a bring-up laboratory,
-- a proving ground for interrupt, memory, shell, and process ideas,
+- a proving ground for interrupt, memory, shell, syscall, and future process ideas,
 - a place to make mistakes while the conceptual surfaces are still small.
 
 It is **not** the intended permanent ceiling of the project.

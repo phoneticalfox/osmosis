@@ -8,8 +8,8 @@ static const char *exception_names[32] = {
     "Coprocessor segment overrun", "Invalid TSS", "Segment not present", "Stack-segment fault",
     "General protection fault", "Page fault", "Reserved", "x87 floating-point exception",
     "Alignment check", "Machine check", "SIMD floating-point exception", "Virtualization exception",
-    "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
-    "Reserved", "Reserved", "Security exception", "Reserved"
+    "Control protection exception", "Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
+    "Reserved", "Reserved", "VMM communication exception", "Security exception", "Reserved"
 };
 
 void isr_handler(struct isr_frame *frame) {

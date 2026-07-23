@@ -57,7 +57,6 @@ irq_common_stub:
 
     popa
     add esp, 8            ; pop err_code and int_no
-    sti
     iretd
 
 section .note.GNU-stack noalloc noexec nowrite align=4

@@ -9,8 +9,6 @@
 #define USER_DATA_SELECTOR   0x20
 #define TSS_SELECTOR         0x28
 
-#define KERNEL_BOOT_STACK_TOP 0x90000u
-
 struct gdt_ptr {
     uint16_t limit;
     uint32_t base;

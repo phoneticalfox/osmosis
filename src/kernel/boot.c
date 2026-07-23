@@ -7,7 +7,7 @@
 static struct boot_info boot_state;
 
 static void boot_store_basic(const struct multiboot_info *mb_info) {
-    if (mb_info->flags & 0x1) {
+    if (mb_info->flags & MULTIBOOT_INFO_MEMORY) {
         boot_state.mem_lower_kb = mb_info->mem_lower;
         boot_state.mem_upper_kb = mb_info->mem_upper;
     }
@@ -26,7 +26,17 @@ static void boot_store_mmap(const struct multiboot_info *mb_info) {
     boot_state.region_count = 0;
 
     while (offset < mmap_end && boot_state.region_count < BOOT_MAX_MEMORY_REGIONS) {
+        uint32_t remaining = mmap_end - offset;
+        if (remaining < sizeof(uint32_t)) {
+            panic("Malformed multiboot memory map header");
+        }
+
         const struct multiboot_mmap_entry *entry = (const struct multiboot_mmap_entry *)(cursor + offset);
+        const uint32_t minimum_payload = sizeof(*entry) - sizeof(entry->size);
+        if (entry->size < minimum_payload || entry->size > remaining - sizeof(entry->size)) {
+            panic("Malformed multiboot memory map entry");
+        }
+
         boot_state.regions[boot_state.region_count].base = entry->addr;
         boot_state.regions[boot_state.region_count].length = entry->len;
         boot_state.regions[boot_state.region_count].type = entry->type;
@@ -69,6 +79,16 @@ const char *boot_memory_type_name(uint32_t type) {
     }
 }
 
+static void boot_print_hex64(uint64_t value) {
+    uint32_t high = (uint32_t)(value >> 32);
+    uint32_t low = (uint32_t)value;
+    if (high) {
+        kprintf("0x%x%08x", high, low);
+    } else {
+        kprintf("0x%x", low);
+    }
+}
+
 void boot_print_memory_map(const struct boot_info *boot) {
     if (!boot) {
         kprintf("Memory map: unavailable (no boot info)\n");
@@ -81,9 +101,10 @@ void boot_print_memory_map(const struct boot_info *boot) {
 
     for (uint32_t i = 0; i < boot->region_count; i++) {
         const struct boot_memory_region *r = &boot->regions[i];
-        uint32_t base_mb = (uint32_t)(r->base / (1024 * 1024));
-        uint32_t len_mb = (uint32_t)(r->length / (1024 * 1024));
-        kprintf("  [%u] base=%u MB len=%u MB type=%s (%u)\n",
-                i, base_mb, len_mb, boot_memory_type_name(r->type), r->type);
+        kprintf("  [%u] base=", i);
+        boot_print_hex64(r->base);
+        kprintf(" length=");
+        boot_print_hex64(r->length);
+        kprintf(" bytes type=%s (%u)\n", boot_memory_type_name(r->type), r->type);
     }
 }

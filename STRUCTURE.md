@@ -1,33 +1,48 @@
-OS/mosis Project Structure
-The kernel has migrated to a conventional `src/` + `include/` layout, while retaining the earliest single-file kernel snapshot for historical reference.
+# OS/mosis repository structure
 
-The active repository root now carries current scaffolding and documentation: identity docs, contributor guidance, build entrypoints, and preserved historical context. It is not a second active home for retired kernel source files.
+The active implementation uses one `src/` + `include/` tree. Generated artifacts stay under `build/`, and retired flat-layout sources stay under `legacy/`.
 
-## Active layout
-1. Documentation & philosophy
-- `README.md`: Public-facing project overview, current status, and long-term direction.
-- `manifesto.md`: The constitutional principles of the system.
-- `AGENTS.md`: Guidance for human and automated contributors; preserves intent, wording discipline, architectural truthfulness, and platform-direction discipline.
-- `docs/ROADMAP.md`: Strategic sequencing from freestanding kernel seed toward a Unix-derivative future.
-- `docs/PLATFORM.md`: Platform and architecture direction from i386 bring-up toward a modern x86_64 daily-driver target.
-- `docs/`: Additional roadmap and architecture notes.
-2. Boot & hardware (assembly)
-- `src/arch/i386/boot/boot.asm`: Stage-0 entry and Protected Mode transition.
-- `src/arch/i386/gdt.asm`: Global Descriptor Table definitions.
-3. Kernel core (headers)
-- `include/osmosis/`: Public kernel headers; architecture headers live under `include/osmosis/arch/i386`.
-4. Kernel core (implementation)
-- `src/kernel/`: Console, formatting, panic handling, shell glue, PMM, and core kernel services.
-- `src/arch/i386/`: IDT, ISR/IRQ glue, PIT heartbeat, keyboard IRQ handling, serial/QEMU helpers, paging, TSS, and syscall plumbing.
-5. Build system
-- `Makefile`: Freestanding build with generated objects in `build/obj/` and the final image at `build/kernel.bin`.
-- `build/linker.ld`: Kernel placement at `0x0010_0000`.
+## Active tree
 
-## Legacy snapshot
-The frozen single-file kernel snapshot lives under `legacy/osmosis_repo/`. It is preserved for comparison and teaching, but it is not the active build target.
+```text
+.
+├── .github/workflows/   Boot verification and preview artifacts
+├── build/
+│   └── linker.ld        Tracked kernel linker script; everything else is generated
+├── docs/                ABI, memory, platform, and roadmap notes
+├── include/osmosis/     Shared and architecture-specific kernel headers
+├── initramfs/           Files packed into the read-only boot initramfs
+├── scripts/             Build-support and QEMU helpers
+├── src/
+│   ├── arch/i386/       i386 boot, interrupts, paging, TSS, and syscall entry
+│   └── kernel/          Console, memory, shell, VFS, and user-mode loader
+├── user/                Current ring-3 demo program and linker script
+├── AGENTS.md            Contributor and automation guidance
+├── Makefile             Canonical build, clean, and QEMU entrypoints
+├── README.md            Current public status and quick start
+└── manifesto.md         Project principles
+```
 
-## Directional note
-Today, the active tree is a freestanding 32-bit kernel seed with a co-designed kernel/userland philosophy. Long-term, the project direction is toward a Unix-derivative, modern 64-bit daily-driver system with FreeBSD as the intended lineage anchor. That direction should guide roadmap, architecture, and interface decisions, but documentation must not present the current tree as already possessing that maturity before the code and provenance justify the claim.
+## Build flow
 
-## Implementation details
-All active C components are built with `-ffreestanding -nostdlib`, and assembly sources use NASM. The linker script keeps the kernel start at `0x100000` for common bootloader compatibility.
+1. `user/hello_user.c` is linked as a freestanding i386 ELF at `0x08000000`.
+2. `scripts/mkinitramfs.py` packs that ELF and the files under `initramfs/` into `build/initramfs.bin`.
+3. GNU `objcopy` wraps the initramfs as an ELF object.
+4. NASM and the C compiler produce the kernel objects under `build/obj/`.
+5. The linker places the Multiboot kernel at `0x00100000` and embeds the initramfs in `build/kernel.bin`.
+6. At boot, the kernel mounts the initramfs, loads `bin/hello_user`, enters ring 3, and returns to either QEMU verification or the interactive kernel shell.
+
+## Boundaries
+
+- Hardware-specific mechanics belong under `src/arch/i386/` with matching headers under `include/osmosis/arch/i386/`.
+- Shared kernel contracts belong under `include/osmosis/`; keep that surface smaller than the implementation.
+- The current ring-3 launcher is synchronous. A scheduler and multi-process address spaces remain future work and should return only as a complete, testable slice.
+- `build/linker.ld` is source despite its directory name. Every other `build/` path is disposable output.
+
+## Historical snapshot
+
+`legacy/osmosis_repo/` preserves the earliest flat-layout version for comparison and teaching. It is deliberately excluded from the active build and should not be used as a second source tree.
+
+## Direction
+
+The active target is a freestanding 32-bit x86 seed. The intended destination is a Unix-derivative, modern 64-bit daily-driver system with FreeBSD as the planned lineage anchor. See [docs/PLATFORM.md](docs/PLATFORM.md) for the boundary between current implementation and future direction.

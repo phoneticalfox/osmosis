@@ -49,27 +49,30 @@ static uintptr_t highest_usable(const struct boot_info *boot) {
     if (!boot) {
         return 0;
     }
-    uintptr_t max_addr = 0;
+    uint64_t max_addr = 0;
     for (uint32_t i = 0; i < boot->region_count; i++) {
         const struct boot_memory_region *region = &boot->regions[i];
         if (region->type != BOOT_MEMORY_USABLE) {
             continue;
         }
-        uintptr_t end = (uintptr_t)(region->base + region->length);
+        uint64_t end = region->base + region->length;
+        if (end < region->base) {
+            end = UINT64_MAX;
+        }
         if (end > max_addr) {
             max_addr = end;
         }
     }
-    return max_addr;
+    if (max_addr > UINTPTR_MAX) {
+        return UINTPTR_MAX;
+    }
+    return (uintptr_t)max_addr;
 }
 
 static struct page_table *alloc_page_table(void) {
     uintptr_t frame = pmm_alloc_frame_below(identity_limit);
     if (!frame) {
-        frame = pmm_alloc_frame();
-        if (!frame) {
-            return NULL;
-        }
+        return NULL;
     }
 
     struct page_table *table = (struct page_table *)(frame);
@@ -85,6 +88,7 @@ static struct page_table *get_or_create_table(uint32_t *directory, uintptr_t vir
     uint32_t entry = directory[index];
 
     if (entry & PAGE_PRESENT) {
+        directory[index] |= flags & (PAGE_USER | PAGE_WRITE);
         uintptr_t table_addr = entry & PAGE_ALIGN_MASK;
         return (struct page_table *)table_addr;
     }
@@ -115,17 +119,22 @@ static int map_single(uint32_t *directory, uintptr_t virt, uintptr_t phys, uint3
 
     table->entries[t_index] = (uint32_t)(phys & PAGE_ALIGN_MASK) | (flags & 0xFFFu) | PAGE_PRESENT;
     mapped_pages++;
-    invlpg(virt);
+    if (paging_on && directory == current_directory) {
+        invlpg(virt);
+    }
     return 1;
 }
 
-static void identity_map_range(uintptr_t start, uintptr_t end) {
+static int identity_map_range(uintptr_t start, uintptr_t end) {
     uintptr_t aligned_start = start & PAGE_ALIGN_MASK;
     uintptr_t aligned_end = align_up(end, PAGE_SIZE);
 
     for (uintptr_t addr = aligned_start; addr < aligned_end; addr += PAGE_SIZE) {
-        (void)map_single(kernel_page_directory, addr, addr, PAGE_WRITE);
+        if (!map_single(kernel_page_directory, addr, addr, PAGE_WRITE)) {
+            return 0;
+        }
     }
+    return 1;
 }
 
 static void load_page_directory(uintptr_t phys) {
@@ -174,7 +183,9 @@ void paging_init(const struct boot_info *boot) {
         kernel_page_directory[i] = 0;
     }
 
-    identity_map_range(0, identity_limit);
+    if (!identity_map_range(0, identity_limit)) {
+        panic("Paging could not construct the identity map");
+    }
 
     load_page_directory((uintptr_t)kernel_page_directory);
     current_directory = kernel_page_directory;
@@ -185,48 +196,8 @@ void paging_init(const struct boot_info *boot) {
             (uint32_t)identity_limit, mapped_pages, allocated_tables);
 }
 
-uint32_t *paging_current_directory(void) {
-    return current_directory;
-}
-
-void paging_switch_directory(uint32_t *dir) {
-    if (!dir) {
-        return;
-    }
-    current_directory = dir;
-    load_page_directory((uintptr_t)dir);
-}
-
-uint32_t *paging_create_address_space(void) {
-    uintptr_t frame = pmm_alloc_frame_below(identity_limit);
-    if (!frame) {
-        frame = pmm_alloc_frame();
-        if (!frame) {
-            return NULL;
-        }
-    }
-
-    uint32_t *dir = (uint32_t *)frame;
-    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
-        dir[i] = 0;
-    }
-
-    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
-        dir[i] = kernel_page_directory[i];
-    }
-    return dir;
-}
-
 int paging_map(uintptr_t virt, uintptr_t phys, uint32_t flags) {
-    return paging_map_in(current_directory, virt, phys, flags);
-}
-
-int paging_map_in(uint32_t *directory, uintptr_t virt, uintptr_t phys, uint32_t flags) {
-    int ok = map_single(directory, virt, phys, flags);
-    if (!ok) {
-        return 0;
-    }
-    return 1;
+    return map_single(current_directory, virt, phys, flags);
 }
 
 int paging_unmap(uintptr_t virt) {
@@ -255,12 +226,8 @@ int paging_unmap(uintptr_t virt) {
 }
 
 uintptr_t paging_resolve(uintptr_t virt) {
-    return paging_resolve_in(current_directory, virt);
-}
-
-uintptr_t paging_resolve_in(uint32_t *directory, uintptr_t virt) {
     uint32_t d_index = pd_index(virt);
-    uint32_t entry = directory[d_index];
+    uint32_t entry = current_directory[d_index];
     if (!(entry & PAGE_PRESENT)) {
         return 0;
     }
@@ -280,19 +247,22 @@ int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags) {
         return 0;
     }
 
-    uintptr_t end = align_up(virt + len, PAGE_SIZE);
-    if (end < virt) { /* overflow */
+    if (len - 1u > UINTPTR_MAX - virt) {
         return 0;
     }
     uintptr_t start = virt & PAGE_ALIGN_MASK;
+    uintptr_t last = (virt + len - 1u) & PAGE_ALIGN_MASK;
 
-    for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+    for (uintptr_t addr = start;; addr += PAGE_SIZE) {
         uint32_t d_index = pd_index(addr);
         uint32_t pd_entry = current_directory[d_index];
         if (!(pd_entry & PAGE_PRESENT)) {
             return 0;
         }
         if ((flags & PAGE_USER) && !(pd_entry & PAGE_USER)) {
+            return 0;
+        }
+        if ((flags & PAGE_WRITE) && !(pd_entry & PAGE_WRITE)) {
             return 0;
         }
 
@@ -304,6 +274,12 @@ int paging_range_has_flags(uintptr_t virt, size_t len, uint32_t flags) {
         }
         if ((flags & PAGE_USER) && !(pt_entry & PAGE_USER)) {
             return 0;
+        }
+        if ((flags & PAGE_WRITE) && !(pt_entry & PAGE_WRITE)) {
+            return 0;
+        }
+        if (addr == last) {
+            break;
         }
     }
 
@@ -325,8 +301,4 @@ struct paging_stats paging_get_stats(void) {
     stats.mapped_pages = mapped_pages;
     stats.page_table_count = allocated_tables;
     return stats;
-}
-
-uintptr_t paging_identity_limit_value(void) {
-    return identity_limit;
 }

@@ -15,6 +15,10 @@ SECTIONS {
 
     .rodata ALIGN(4K) : {
         *(.rodata*)
+        . = ALIGN(4);
+        __initramfs_start = .;
+        KEEP(*(.initramfs))
+        __initramfs_end = .;
     }
 
     .data ALIGN(4K) : {

@@ -1,6 +1,7 @@
 #include "osmosis/arch/i386/irq.h"
 #include "osmosis/arch/i386/idt.h"
 #include "osmosis/arch/i386/io.h"
+#include "osmosis/arch/i386/segments.h"
 
 #define PIC1_COMMAND 0x20
 #define PIC1_DATA    0x21
@@ -8,8 +9,24 @@
 #define PIC2_DATA    0xA1
 
 #define PIC_EOI 0x20
+#define PIC_READ_ISR 0x0B
 
 static irq_handler_t irq_handlers[16] = {0};
+static uint16_t pic_mask = 0xFFFFu;
+
+static void pic_write_mask(void) {
+    outb(PIC1_DATA, (uint8_t)(pic_mask & 0xFFu));
+    outb(PIC2_DATA, (uint8_t)(pic_mask >> 8));
+}
+
+static int slave_has_handler(void) {
+    for (uint8_t irq = 8; irq < 16; irq++) {
+        if (irq_handlers[irq]) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static void pic_remap(void) {
     /* Start initialization sequence (cascade mode). */
@@ -37,21 +54,43 @@ static void pic_remap(void) {
     outb(PIC2_DATA, 0x01);
     io_wait();
 
-    /* Clear masks. */
-    outb(PIC1_DATA, 0x0);
-    outb(PIC2_DATA, 0x0);
+    /* Start with every line masked; registering a handler unmasks its line. */
+    pic_mask = 0xFFFFu;
+    pic_write_mask();
 }
 
 void irq_install_handler(uint8_t irq, irq_handler_t handler) {
-    if (irq < 16) {
-        irq_handlers[irq] = handler;
+    if (irq >= 16 || !handler) {
+        return;
     }
+
+    uint32_t flags = irq_save();
+    irq_handlers[irq] = handler;
+    pic_mask &= (uint16_t)~(1u << irq);
+    if (irq >= 8) {
+        pic_mask &= (uint16_t)~(1u << 2); /* slave cascade */
+    }
+    pic_write_mask();
+    irq_restore(flags);
 }
 
 void irq_clear_handler(uint8_t irq) {
-    if (irq < 16) {
-        irq_handlers[irq] = 0;
+    if (irq >= 16) {
+        return;
     }
+
+    uint32_t flags = irq_save();
+    irq_handlers[irq] = 0;
+    pic_mask |= (uint16_t)(1u << irq);
+
+    if (irq == 2 && slave_has_handler()) {
+        pic_mask &= (uint16_t)~(1u << 2);
+    } else if (irq >= 8 && !slave_has_handler() && !irq_handlers[2]) {
+        pic_mask |= (uint16_t)(1u << 2);
+    }
+
+    pic_write_mask();
+    irq_restore(flags);
 }
 
 void irq_init(void) {
@@ -65,7 +104,8 @@ void irq_init(void) {
     };
 
     for (uint8_t i = 0; i < sizeof(irqs) / sizeof(irqs[0]); i++) {
-        idt_set_gate(IRQ_BASE + i, (uint32_t)(uintptr_t)irqs[i], 0x08, flags);
+        idt_set_gate(IRQ_BASE + i, (uint32_t)(uintptr_t)irqs[i],
+                     KERNEL_CODE_SELECTOR, flags);
     }
 }
 
@@ -90,6 +130,20 @@ void irq_restore(uint32_t flags) {
 void irq_handler(struct isr_frame *frame) {
     if (frame->int_no >= IRQ_BASE && frame->int_no <= IRQ_MAX) {
         uint8_t irq_no = (uint8_t)(frame->int_no - IRQ_BASE);
+
+        if (irq_no == 7) {
+            outb(PIC1_COMMAND, PIC_READ_ISR);
+            if (!(inb(PIC1_COMMAND) & 0x80u)) {
+                return; /* spurious IRQ7: no EOI */
+            }
+        } else if (irq_no == 15) {
+            outb(PIC2_COMMAND, PIC_READ_ISR);
+            if (!(inb(PIC2_COMMAND) & 0x80u)) {
+                outb(PIC1_COMMAND, PIC_EOI); /* acknowledge the cascade only */
+                return;
+            }
+        }
+
         irq_handler_t handler = irq_handlers[irq_no];
         if (handler) {
             handler(frame);

@@ -43,7 +43,7 @@ ISR_ERR   17
 ISR_NOERR 18
 ISR_NOERR 19
 ISR_NOERR 20
-ISR_NOERR 21
+ISR_ERR   21
 ISR_NOERR 22
 ISR_NOERR 23
 ISR_NOERR 24
@@ -51,8 +51,8 @@ ISR_NOERR 25
 ISR_NOERR 26
 ISR_NOERR 27
 ISR_NOERR 28
-ISR_NOERR 29
-ISR_NOERR 30
+ISR_ERR   29
+ISR_ERR   30
 ISR_NOERR 31
 
 global isr_common_stub
@@ -81,7 +81,6 @@ isr_common_stub:
 
     popa
     add esp, 8            ; pop err_code and int_no
-    sti
     iretd
 
 section .note.GNU-stack noalloc noexec nowrite align=4

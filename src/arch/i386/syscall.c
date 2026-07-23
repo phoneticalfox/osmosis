@@ -22,13 +22,11 @@ typedef uint32_t (*syscall_fn_t)(struct isr_frame *frame);
 static uint32_t syscall_write(struct isr_frame *frame);
 static uint32_t syscall_exit(struct isr_frame *frame);
 static uint32_t syscall_getpid(struct isr_frame *frame);
-static uint32_t syscall_brk(struct isr_frame *frame);
 
 static const syscall_fn_t syscall_table[] = {
     [SYSCALL_WRITE] = syscall_write,
     [SYSCALL_EXIT] = syscall_exit,
     [SYSCALL_GETPID] = syscall_getpid,
-    [SYSCALL_BRK] = syscall_brk,
 };
 
 static int32_t syscall_error(int code, const char *context, uint32_t eax, uint32_t eip) {
@@ -78,16 +76,10 @@ static uint32_t syscall_write(struct isr_frame *frame) {
 
 static uint32_t syscall_exit(struct isr_frame *frame) {
     uint32_t code = frame->ebx;
-    userland_exit_from_syscall(frame, code);
-    return code;
+    return (uint32_t)userland_exit_from_syscall(code);
 }
 
 static uint32_t syscall_getpid(struct isr_frame *frame) {
     (void)frame;
     return userland_current_pid();
-}
-
-static uint32_t syscall_brk(struct isr_frame *frame) {
-    (void)frame;
-    return (uint32_t)syscall_error(SYSCALL_ENOSYS, "brk/sbrk placeholder", frame->eax, frame->eip);
 }
