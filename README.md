@@ -6,7 +6,7 @@
 [![Principle](https://img.shields.io/badge/correctness-first-success?labelColor=111)](manifesto.md)
 [![Principle](https://img.shields.io/badge/clarity-always-blue?labelColor=111)](manifesto.md)
 
-## Baby Booties 🍼🤱👼
+### Baby Booties 🍼🤱👼
 ![Boot animation](boot-left-inspected-512x224-once.gif)
 
 OS/mosis is one stack, one contract: the kernel and userland are designed together, with explicit boundaries and diagnostics that explain what the machine is doing.
