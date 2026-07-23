@@ -6,6 +6,9 @@
 [![Principle](https://img.shields.io/badge/correctness-first-success?labelColor=111)](manifesto.md)
 [![Principle](https://img.shields.io/badge/clarity-always-blue?labelColor=111)](manifesto.md)
 
+## Baby Booties 🍼🤱👼
+![Boot animation](boot-left-inspected-512x224-once.gif)
+
 OS/mosis is one stack, one contract: the kernel and userland are designed together, with explicit boundaries and diagnostics that explain what the machine is doing.
 
 Today, this repository contains a bootable freestanding i386 kernel with a small synchronous ring-3 demo. The long-term direction is a real Unix-derivative, modern 64-bit daily-driver system with FreeBSD as the intended lineage anchor. That is a destination, not a claim about the current code.
@@ -21,9 +24,6 @@ Today, this repository contains a bootable freestanding i386 kernel with a small
 - A headless QEMU verification path that fails the build when the user-mode demo does not exit cleanly.
 
 Not implemented yet: a scheduler or process model, `fork`/`execve`/`waitpid`, writable or persistent storage, a userland shell, the x86_64 port, or FreeBSD-derived code/provenance.
-
-### Baby Boot 🍼 
-![Boot animation](boot-left-inspected-512x224-once.gif)
 
 ## Build
 
