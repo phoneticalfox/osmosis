@@ -22,6 +22,9 @@ Today, this repository contains a bootable freestanding i386 kernel with a small
 
 Not implemented yet: a scheduler or process model, `fork`/`execve`/`waitpid`, writable or persistent storage, a userland shell, the x86_64 port, or FreeBSD-derived code/provenance.
 
+### Baby Boot 🍼 
+![Boot animation](boot-left-inspected-512x224-once.gif)
+
 ## Build
 
 The host-toolchain path needs GCC with 32-bit output support, GNU binutils, NASM, and Python 3:
