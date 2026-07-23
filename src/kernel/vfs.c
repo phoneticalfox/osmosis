@@ -6,42 +6,71 @@
 #include "osmosis/kprintf.h"
 
 #define MAX_VFS_NODES 32
-#define NAME_MAX 96
-
-static struct vfs_node nodes[MAX_VFS_NODES];
-static uint32_t node_count = 0;
+#define VFS_NAME_CAPACITY 64
 
 struct initramfs_entry {
-    char name[64];
+    char name[VFS_NAME_CAPACITY];
     uint32_t size;
 };
 
+static struct vfs_node nodes[MAX_VFS_NODES];
+static char node_names[MAX_VFS_NODES][VFS_NAME_CAPACITY];
+static uint32_t node_count = 0;
+
+static int copy_entry_name(char *destination, const char *source) {
+    for (uint32_t i = 0; i < VFS_NAME_CAPACITY; i++) {
+        destination[i] = source[i];
+        if (source[i] == '\0') {
+            return i != 0;
+        }
+    }
+    return 0;
+}
+
 void vfs_init(const uint8_t *initramfs, uint32_t size) {
     node_count = 0;
-    const uint8_t *cursor = initramfs;
-    const uint8_t *end = initramfs + size;
-    while (cursor + sizeof(struct initramfs_entry) <= end) {
-        const struct initramfs_entry *hdr = (const struct initramfs_entry *)cursor;
-        cursor += sizeof(struct initramfs_entry);
-        if (hdr->size == 0 || hdr->name[0] == 0) {
+    if (!initramfs || size < sizeof(struct initramfs_entry)) {
+        kprintf("vfs: initramfs is missing or too small\n");
+        return;
+    }
+
+    uint32_t offset = 0;
+    while (size - offset >= sizeof(struct initramfs_entry)) {
+        const struct initramfs_entry *header =
+            (const struct initramfs_entry *)(initramfs + offset);
+        offset += sizeof(*header);
+
+        if (header->size == 0 && header->name[0] == '\0') {
             break;
         }
         if (node_count >= MAX_VFS_NODES) {
-            kprintf("vfs: initramfs truncated (capacity %u)\n", MAX_VFS_NODES);
+            kprintf("vfs: initramfs exceeds the %u-file capacity\n", MAX_VFS_NODES);
             break;
         }
-        if (cursor + hdr->size > end) {
-            kprintf("vfs: entry %s truncated\n", hdr->name);
+        if (!copy_entry_name(node_names[node_count], header->name)) {
+            kprintf("vfs: invalid or unterminated entry name\n");
             break;
         }
-        nodes[node_count].path = (const char *)hdr->name;
-        nodes[node_count].data = cursor;
-        nodes[node_count].size = hdr->size;
+        if (header->size > size - offset) {
+            kprintf("vfs: entry %s is truncated\n", node_names[node_count]);
+            break;
+        }
+
+        uint32_t aligned_size = (header->size + 3u) & ~3u;
+        if (aligned_size < header->size || aligned_size > size - offset) {
+            kprintf("vfs: entry %s has invalid padding\n", node_names[node_count]);
+            break;
+        }
+
+        nodes[node_count].path = node_names[node_count];
+        nodes[node_count].data = initramfs + offset;
+        nodes[node_count].size = header->size;
         node_count++;
-        uint32_t aligned = (hdr->size + 3u) & ~3u;
-        cursor += aligned;
+        offset += aligned_size;
     }
-    kprintf("vfs: initramfs mounted with %u files\n", node_count);
+
+    kprintf("VFS: mounted read-only initramfs with %u file%s.\n",
+            node_count, node_count == 1 ? "" : "s");
 }
 
 const struct vfs_node *vfs_lookup(const char *path) {
@@ -49,46 +78,44 @@ const struct vfs_node *vfs_lookup(const char *path) {
         return NULL;
     }
     for (uint32_t i = 0; i < node_count; i++) {
-        const struct vfs_node *n = &nodes[i];
-        const char *p = path;
-        const char *q = n->path;
-        int match = 1;
-        while (*p || *q) {
-            if (*p != *q) {
-                match = 0;
-                break;
-            }
-            p++;
-            q++;
+        const char *left = path;
+        const char *right = nodes[i].path;
+        while (*left && *left == *right) {
+            left++;
+            right++;
         }
-        if (match) {
-            return n;
+        if (*left == '\0' && *right == '\0') {
+            return &nodes[i];
         }
     }
     return NULL;
 }
 
-int vfs_read(const struct vfs_node *node, uint32_t offset, void *buf, uint32_t len) {
-    if (!node || !buf) {
+int vfs_read(const struct vfs_node *node, uint32_t offset, void *buffer, uint32_t length) {
+    if (!node || !buffer) {
         return -1;
     }
     if (offset >= node->size) {
         return 0;
     }
-    if (offset + len > node->size) {
-        len = node->size - offset;
+    if (length > node->size - offset) {
+        length = node->size - offset;
     }
-    uint8_t *dst = (uint8_t *)buf;
-    const uint8_t *src = node->data + offset;
-    for (uint32_t i = 0; i < len; i++) {
-        dst[i] = src[i];
+
+    uint8_t *destination = (uint8_t *)buffer;
+    const uint8_t *source = node->data + offset;
+    for (uint32_t i = 0; i < length; i++) {
+        destination[i] = source[i];
     }
-    return (int)len;
+    return (int)length;
 }
 
 void vfs_list(void) {
+    if (node_count == 0) {
+        kprintf("(initramfs is empty)\n");
+        return;
+    }
     for (uint32_t i = 0; i < node_count; i++) {
-        const struct vfs_node *n = &nodes[i];
-        kprintf("%s (%u bytes)\n", n->path, n->size);
+        kprintf("%s (%u bytes)\n", nodes[i].path, nodes[i].size);
     }
 }

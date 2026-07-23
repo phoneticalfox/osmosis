@@ -11,6 +11,7 @@
 void pit_init(uint32_t frequency_hz);
 uint32_t pit_frequency(void);
 uint32_t pit_ticks(void);
+/* Interrupts must be enabled so HLT can wake on the next timer tick. */
 void pit_wait_ticks(uint32_t delta);
 uint64_t pit_uptime_ms(void);
 void pit_sleep_ms(uint32_t ms);

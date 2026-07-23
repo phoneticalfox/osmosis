@@ -1,32 +1,42 @@
-# OS/mosis Syscall ABI (i386, `int 0x80`)
+# OS/mosis syscall ABI (i386, `int 0x80`)
+
+This is the ABI implemented by the current synchronous ring-3 demo. It is deliberately smaller than the future process ABI described in [USERLAND_ROADMAP.md](USERLAND_ROADMAP.md).
 
 ## Calling convention
-- Interrupt vector: **0x80** (DPL=3 gate in the IDT).
-- Calling convention: Linux-style registers.
-  - **EAX**: syscall number (see table below).
-  - **EBX, ECX, EDX, ESI, EDI, EBP**: positional arguments (only the first three are used today).
-  - **EAX**: return value.
-- Flags: the kernel forces IF=1 on return from a syscall.
+
+- Interrupt vector: `0x80`, installed as a DPL 3 interrupt gate.
+- `EAX`: syscall number.
+- `EBX`, `ECX`, `EDX`, `ESI`, `EDI`, `EBP`: positional arguments; only the first three are currently used.
+- `EAX`: return value for syscalls that resume user mode.
+- A normal interrupt return restores the caller's saved flags. The demo launcher begins user mode with IF enabled.
 
 ## Error model
-- Returns `>= 0` on success.
-- Returns **negative errno** on failure. Errno values are numeric only (there is no per-process `errno` variable yet).
-  - `9`  (`-EBADF`)   – bad/unsupported descriptor.
-  - `14` (`-EFAULT`)  – invalid user pointer or unmapped page.
-  - `22` (`-EINVAL`)  – malformed request (e.g., null buffer).
-  - `38` (`-ENOSYS`)  – syscall not implemented.
-- The kernel logs loud failure context for invalid requests (number, EAX, and EIP).
 
-## Syscall table
+Success is non-negative. Failure is a negative numeric errno; there is no userland `errno` variable yet.
 
-| Number | Name    | Registers                     | Notes |
-| ------ | ------- | ----------------------------- | ----- |
-| 0      | `write` | EBX=fd, ECX=buf, EDX=len      | Only `fd=1` (console) is supported. Copies directly from user pages; range-checked for user accessibility. |
-| 1      | `exit`  | EBX=exit_code                 | Terminates the current user program and returns to the kernel launcher. |
-| 2      | `getpid`| –                             | Stub; always returns `1`. |
-| 3      | `brk`   | EBX=new_break                 | Placeholder; always `-ENOSYS`. |
+- `-9` (`EBADF`) — unsupported descriptor.
+- `-14` (`EFAULT`) — invalid or inaccessible user range.
+- `-22` (`EINVAL`) — malformed request.
+- `-38` (`ENOSYS`) — unknown or reserved syscall.
 
-## User program expectations
-- User pages live at 0x04000000 and above; the loader maps the ELF segments and a 16 KiB user stack at 0x04100000.
-- The kernel validates pointers against mapped user pages (`PAGE_USER`); unmapped or supervisor-only pointers fail with `-EFAULT`.
-- Syscall surface is intentionally minimal; expanding it requires updating this table and the shared `include/osmosis/syscall_numbers.h`.
+Invalid requests are logged with the syscall context to keep early ABI failures visible.
+
+## Current table
+
+| Number | Name | Registers | Current behavior |
+| ---: | --- | --- | --- |
+| 0 | `write` | `EBX=fd`, `ECX=buffer`, `EDX=length` | Supports stdout (`fd=1`) and writes to VGA plus serial after validating every covered page as user-accessible. |
+| 1 | `exit` | `EBX=status` | Ends the synchronous demo and restores the suspended kernel stack. A valid call does not return to user mode. |
+| 2 | `getpid` | — | Returns `1`, the identity of the single demo task; this is not yet a process-table lookup. |
+
+## Current user mapping
+
+- ELF load base: `0x08000000`.
+- Stack range: `0x080FC000` through `0x08100000` (16 KiB, top exclusive).
+- Loadable segments must stay below the stack range.
+- The loader validates the ELF class, byte order, machine, program-header table, file bounds, memory bounds, and entry point before entering ring 3.
+- Pointer-bearing syscalls require the requested range to stay inside the loaded program/stack region and every page to carry `PAGE_USER`.
+
+## Expansion rule
+
+Adding a syscall requires updating the shared numbers, kernel dispatch, user wrapper, this table, and a QEMU test in the same slice. Compile-only syscall surfaces do not count as implementation.

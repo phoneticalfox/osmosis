@@ -19,7 +19,10 @@
 #include "osmosis/tty.h"
 #include "osmosis/shell.h"
 #include "osmosis/userland.h"
-#include "osmosis/process.h"
+#include "osmosis/vfs.h"
+
+extern const uint8_t __initramfs_start[];
+extern const uint8_t __initramfs_end[];
 
 void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     serial_init();
@@ -45,9 +48,14 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     pmm_init(boot);
     paging_init(boot);
     kmalloc_init();
-    tss_init(KERNEL_BOOT_STACK_TOP);
+    tss_init();
     syscall_init();
     shell_init(boot);
+
+    const uint8_t *initramfs = __initramfs_start;
+    uint32_t initramfs_size =
+        (uint32_t)(__initramfs_end - __initramfs_start);
+    vfs_init(initramfs, initramfs_size);
 
     irq_enable();
 
@@ -61,12 +69,17 @@ void kernel_main(uint32_t mb_magic, uint32_t mb_info_addr) {
     kprintf("User mode demo completed (exit=%d).\n", user_exit);
     kprintf("\n\"Correctness First, Clarity Always.\"\n");
 
-    int demo_pid = userland_bootstrap_demo();
-    if (demo_pid < 0) {
-        kprintf("Failed to start demo process.\n");
-        userland_finished();
-        return;
+#ifdef CONFIG_QEMU_EXIT
+    kprintf("Boot verification %s; exiting via QEMU debug port.\n",
+            user_exit == 0 ? "passed" : "failed");
+    /* isa-debug-exit reports (value << 1) | 1: success is status 33. */
+    qemu_exit(user_exit == 0 ? 0x10u : 0x11u);
+#else
+    kprintf("Kernel shell ready. Type 'help' for commands.\n");
+    shell_run();
+#endif
+
+    for (;;) {
+        __asm__ __volatile__("hlt");
     }
-    kprintf("User demo pid=%d staged; entering scheduler.\n", demo_pid);
-    process_enter_first();
 }

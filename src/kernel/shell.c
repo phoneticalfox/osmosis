@@ -6,7 +6,6 @@
 #include "osmosis/kprintf.h"
 #include "osmosis/kmalloc.h"
 #include "osmosis/pmm.h"
-#include "osmosis/process.h"
 #include "osmosis/tty.h"
 #include "osmosis/vfs.h"
 #include "osmosis/arch/i386/keyboard.h"
@@ -42,9 +41,10 @@ static void shell_print_help(void) {
     tty_write("  heap         - Show heap allocator statistics\n");
     tty_write("  alloc_test   - Allocate and free test blocks\n");
     tty_write("  sleep <ms>   - Pause for the requested milliseconds\n");
-    tty_write("  ps           - List processes\n");
+    tty_write("  echo <text>  - Print text\n");
     tty_write("  ls           - List initramfs files\n");
     tty_write("  cat <path>   - Print an initramfs file\n");
+    tty_write("  halt         - Stop the CPU until reset\n");
 }
 
 static void shell_print_info(void) {
@@ -169,11 +169,11 @@ static int parse_uint(const char *s, uint32_t *out_value) {
         if (*s < '0' || *s > '9') {
             return 0;
         }
-        uint32_t next = value * 10u + (uint32_t)(*s - '0');
-        if (next < value) {
-            return 0; /* overflow */
+        uint32_t digit = (uint32_t)(*s - '0');
+        if (value > (UINT32_MAX - digit) / 10u) {
+            return 0;
         }
-        value = next;
+        value = value * 10u + digit;
         s++;
     }
 
@@ -236,10 +236,14 @@ static void shell_handle_line(const char *line) {
         shell_print_heap();
     } else if (str_eq(line, "alloc_test")) {
         shell_alloc_test();
-    } else if (str_eq(line, "ps")) {
-        process_list();
     } else if (str_eq(line, "ls")) {
         vfs_list();
+    } else if (str_eq(line, "halt")) {
+        kprintf("Halting CPU. Reset the machine to continue.\n");
+        __asm__ __volatile__("cli");
+        for (;;) {
+            __asm__ __volatile__("hlt");
+        }
     } else {
         const char *arg = NULL;
         if (match_command(line, "sleep", &arg) && arg && *arg) {
@@ -250,6 +254,11 @@ static void shell_handle_line(const char *line) {
             } else {
                 kprintf("Invalid duration: %s\n", arg);
             }
+        } else if (match_command(line, "echo", &arg)) {
+            if (arg) {
+                tty_write(arg);
+            }
+            tty_putc('\n');
         } else if (match_command(line, "cat", &arg) && arg && *arg) {
             const struct vfs_node *node = vfs_lookup(arg);
             if (!node) {
@@ -258,13 +267,17 @@ static void shell_handle_line(const char *line) {
                 char buf[128];
                 uint32_t offset = 0;
                 int read;
+                char last = '\0';
                 while ((read = vfs_read(node, offset, buf, sizeof(buf))) > 0) {
                     for (int i = 0; i < read; i++) {
                         tty_putc(buf[i]);
+                        last = buf[i];
                     }
                     offset += (uint32_t)read;
                 }
-                tty_putc('\n');
+                if (last != '\n') {
+                    tty_putc('\n');
+                }
             }
         } else {
             kprintf("Unknown command: %s\n", line);

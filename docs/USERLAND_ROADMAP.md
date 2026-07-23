@@ -1,75 +1,91 @@
-# Userland Roadmap
+# Userland roadmap
 
-Goal: deliver a Unix-like userland on OS/mosis with `/bin/sh` first, and zsh (with grml config) later. Correctness first, clarity always; keep the kernel surface minimal and documented.
+The userland goal is a coherent Unix-derivative operating environment: a small `/bin/sh` first, then richer tools and eventually zsh with the grml configuration. Kernel interfaces should grow only when a concrete userland slice needs them.
 
-## Milestones (dependencies & definition of done)
+## M0 — synchronous ring-3 proof (current)
 
-- **M0 — User/kernel contract frozen**
-  - **Depends on:** Ring 3 entry, stable IDT/GDT/TSS, timer + keyboard IRQ, basic physical/virtual memory, kernel heap.
-  - **Work:** Select syscall ABI (see below); document all syscalls; provide kernel stubs for the initial set; add a user-mode “hello” that exits via syscall; add a serial/logging convention for automated tests.
-  - **Definition of done:** QEMU boots a user binary that issues at least `write` + `exit` via the ABI; `get_abi_version` (or equivalent) reports the negotiated version; boot log shows the ABI identifier.
+Implemented:
 
-- **M1 — Minimal POSIX slice for `/bin/sh`**
-  - **Depends on:** M0; ELF loader for user programs; minimal libc wrappers.
-  - **Work:** Implement the “POSIX slice (sh)” syscalls below; ship `/bin/sh` (small POSIX-ish shell) and the few core utilities it depends on (`echo`, `cat`, `true/false`, `test` minimal, `ls` optional at first); ensure `fork`/`execve`/`waitpid` path is stable; support basic redirection without pipelines.
-  - **Definition of done:** Boot → `/bin/sh` prompt on console/serial; run `echo hi`, `cat /etc/issue` (or similar) succeeds; `sh -c "exit 0"` returns status 0 to caller; negative errno model observed when syscalls fail (and surfaced via libc).
+- i386 GDT user segments and a dedicated TSS ring-0 stack;
+- ELF loading into a fixed user virtual range;
+- one generated read-only initramfs containing the demo ELF;
+- `int 0x80` with `write`, `exit`, and a single-task `getpid` result;
+- user-pointer validation against present user pages; and
+- a QEMU test that proves user entry, syscall output, clean exit, and kernel resumption.
 
-- **M2 — Pipes and redirection completeness**
-  - **Depends on:** M1; working pipe/dup2; file descriptors for stdio wired through the console driver.
-  - **Work:** Implement `pipe`, `dup2`, `close` correctness; allow `cmd1 | cmd2` and `cmd >file` in `/bin/sh`; add lightweight file status (`stat/fstat/lseek`) for redirection sanity checks; ensure `errno` thread safety is defined (per-thread copy once threads exist).
-  - **Definition of done:** In QEMU, `echo hi | cat` prints `hi`; `cat /nope` returns non-zero with `errno` set; boot log captures pipeline success markers.
+Deliberate limitations:
 
-- **M3 — Job control + terminal discipline**
-  - **Depends on:** M2; signals; process groups; controlling terminal rules; `termios` basics.
-  - **Work:** Add `fork`, `setpgid`, `tcsetpgrp`, `tcgetattr/tcsetattr` (canonical + raw), `sigaction`, `kill`, `sigsuspend`, `waitpid` with `WUNTRACED`/`WCONTINUED`; support `SIGINT/SIGTSTP/SIGCHLD`; document signal delivery semantics; add `pty` minimal layer for future interactive shells.
-  - **Definition of done:** `/bin/sh` supports Ctrl+C to interrupt foreground jobs and `sleep 1 &` continues; stopped jobs can be foregrounded with `fg`; boot log records job transitions without kernel crashes.
+- the launcher is synchronous, not a process scheduler;
+- the user mapping lives in the kernel's current page directory;
+- there is no descriptor table, libc, persistent filesystem, heap syscall, or ABI-version syscall.
 
-- **M4 — zsh (with grml config)**
-  - **Depends on:** M3; filesystem persistence for `/etc` and `$HOME`; dynamic memory in userland (malloc/free); enough `ioctl`/`termios` for line editing; environment variable plumbing.
-  - **Work:** Package zsh with grml config (possibly statically linked initially); ensure `poll`/`select` or `pselect` exists for interactive editing; provide `isatty`, `ttyname` helpers; verify prompt rendering and history; tune resource limits (`getrlimit/setrlimit` optional but planned).
-  - **Definition of done:** Boot → init → zsh launches with grml prompt; line editing works; background/foreground jobs behave; simple scripts execute; boot log includes zsh startup and clean exit markers.
+## M1 — one real process lifecycle
 
-## Syscall ABI proposal (i386)
+Depends on explicit address-space ownership and teardown.
 
-- **Entry mechanism:** Use `int 0x80` initially for debuggability and compatibility with early boot stages. Keep the door open for `sysenter` once the ABI stabilizes; add a feature flag in `get_abi_version` to advertise which entry points are available/enabled.
-- **Calling convention:**  
-  - `EAX` = syscall number.  
-  - `EBX`, `ECX`, `EDX`, `ESI`, `EDI`, `EBP` = up to six arguments (ordered).  
-  - Scratch: `EAX`, `EDX`, `ECX`; preserved: `EBX`, `ESI`, `EDI`, `EBP` (unless used for args).  
-  - Return: `EAX` = success value (≥ 0) or negative errno (`-E...`). `EDX` may carry high bits for 64-bit results when needed (documented per syscall).
-- **Naming conventions:** Kernel handlers as `sys_<name>`; user-facing wrappers as plain names in libc. Enumerate syscall numbers in a single header (`include/sys/syscall.h`-style) and generate userland constants from the same source to avoid drift.
-- **Error model:** Always negative errno in `EAX`; libc converts to `-1` + `errno` for POSIX APIs. Undefined behavior is avoided: invalid pointers return `-EFAULT`, bad fds `-EBADF`, unsupported ops `-ENOSYS`.
-- **Versioning strategy:**  
-  - `get_abi_version` syscall returns `{major, minor, flags}`; major bumps for breaking changes, minor for additive.  
-  - Keep syscall numbers stable; new syscalls are appended only.  
-  - Deprecations are flagged in `flags` and remain callable until the next major bump.  
-  - Boot log must print the ABI tuple and entry method in use.
+- Give each process its own user mappings and kernel stack.
+- Add a small process table with runnable, running, and exited states.
+- Schedule at least two deterministic test programs.
+- Reap all frames and other resources after exit.
+- Keep the current synchronous launcher until the scheduled path passes the same boot test.
 
-## Minimal POSIX slices
+Definition of done: two isolated user programs run and exit in QEMU; one program cannot read or write the other's pages; the kernel reports no leaked process resources.
 
-- **Slice A — `/bin/sh` essentials (no job control yet)**  
-  `read`, `write`, `open/close`, `lseek`, `fstat/stat`, `unlink`, `chdir`, `getcwd` (optional but helpful), `fork`, `execve`, `_exit/exit`, `waitpid`, `pipe`, `dup/dup2`, `umask` (for redirection), `getpid`, `brk`/`sbrk` or `mmap` for allocator, `gettimeofday` (for shell `time` or arithmetic), `isatty` helper in libc. Signals: `sigaction` + `SIGINT` handling sufficient to terminate foreground commands cleanly.
+## M2 — execution and waiting
 
-- **Slice B — zsh + grml needs (superset)**  
-  All of Slice A plus: `sigprocmask`, `sigsuspend`, `setpgid`, `tcsetpgrp/tcgetpgrp`, `kill`, `waitpid` with job-control flags, `getppid`, `setsid` (if implementing a session model), `ioctl` for termios (`TCGETS/TCSETS*`), `poll`/`select`/`pselect`, `getrlimit/setrlimit` (optional but helpful), `pipe2` (non-blocking/close-on-exec variants) or fcntl flags, `dup3` (optional), pseudo-terminals, environment block support (`environ`, `setenv/unsetenv`, `putenv`), `errno` thread-safety guarantee for future pthreads, and stable `/dev/null`, `/dev/tty`.
+- Choose and document either `spawn` first or the minimum correct `fork` + `execve` path.
+- Implement `waitpid` with a real blocked/wakeup state rather than a retry placeholder.
+- Copy path and argument data safely across the privilege boundary.
+- Reject malformed ELF images without leaving partial mappings behind.
 
-## Test strategy (QEMU + boot.log)
+Definition of done: a parent starts a child from the VFS, observes its status, and continues; error paths return stable negative errno values.
 
-1. **Image build:** Produce a bootable disk image containing kernel + userland slices. Embed a small test init that runs scripted scenarios for each milestone (e.g., write/exit for M0, `echo hi | cat` for M2, job control probes for M3).
-2. **Execution harness:** Run headless QEMU with serial redirected to a file:  
-   `qemu-system-i386 -m 256M -kernel kernel.elf -serial file:boot.log -no-reboot -no-shutdown -monitor none -display none [...]`  
-   Add `-append "test_scenario=<name>"` if using multiboot cmdline parsing.
-3. **Pass/fail parsing:** Host-side script parses `boot.log` for structured markers (`[TEST] name=... result=PASS/FAIL errno=<n>`). Non-zero QEMU exit or missing PASS markers = failure. Keep per-test timeouts to catch hangs.
-4. **Incremental coverage:**  
-   - M0: verify `write` output + clean `_exit`.  
-   - M1: run `/bin/sh -c "exit 0"`; check exit code emitted to log.  
-   - M2: exercise `pipe` + `dup2` with `echo hi | cat`.  
-   - M3: spawn background job, send `SIGINT`, verify foreground job stops; check `SIGCHLD` reaping.  
-   - M4: launch zsh, run a simple script, confirm prompt and exit path.  
-5. **Artifacts:** Archive `boot.log`, kernel/userland hashes, and ABI version for each run; keep them in CI artifacts for regressions.
+## M3 — descriptors and a minimal libc
 
-## Notes on keeping the kernel surface minimal
+- Per-process descriptor tables with console-backed stdin/stdout/stderr.
+- `read`, `write`, `open`, `close`, `lseek`, and basic `stat`/`fstat` against the VFS.
+- Shared syscall-number definitions and checked or generated user wrappers.
+- Minimal string, memory, allocation, and error-handling routines.
 
-- Only add syscalls when a specific userland feature needs them; document each syscall with purpose, args, errno, and side effects.
-- Prefer composable primitives (`pipe`, `dup2`, `read`/`write`, `sigaction`) over high-level helpers. If a high-level helper is added (e.g., `spawn`), ensure it can be emulated by libc once richer POSIX APIs exist.
-- Reuse existing drivers (console/serial) for early userland I/O to avoid premature terminal complexity; introduce PTYs only when job control demands it.
+Definition of done: independently linked utilities can read a file, write output, and report a failed open without kernel-specific helper calls.
+
+## M4 — `/bin/sh`
+
+- A small shell and the utilities it concretely requires (`echo`, `cat`, `true`, `false`, a minimal `test`, and `ls`).
+- Current directory support, environment and argument blocks, file redirection, and executable lookup.
+- Pipes and `dup2` only when the shell begins using pipelines.
+
+Definition of done: boot → init → `/bin/sh`; `echo hi`, `cat /etc/issue`, a failing command, redirection, and a simple pipeline all behave predictably.
+
+## M5 — terminal and job control
+
+- Signals, process groups, sessions, a controlling terminal, and basic termios.
+- `sigaction`, `kill`, `setpgid`, `tcsetpgrp`, and the required `waitpid` states.
+- Pseudo-terminals when an actual interactive consumer requires them.
+
+Definition of done: Ctrl+C affects the foreground job, background jobs remain scheduled, and stopped/exited children are reported without races.
+
+## M6 — zsh and a durable user environment
+
+Depends on persistent storage, a mature libc, terminal discipline, environment handling, and enough polling/I/O controls for interactive line editing.
+
+- Package zsh, initially statically if that keeps the dependency story legible.
+- Add the grml configuration as an authored system package rather than a build-time accident.
+- Preserve history, configuration, and user files across boots.
+
+Definition of done: init launches zsh with the intended prompt; line editing, scripts, foreground/background jobs, and clean shutdown all work.
+
+## ABI rules
+
+- `EAX` selects the syscall; arguments begin in `EBX`, `ECX`, `EDX`, `ESI`, `EDI`, and `EBP`.
+- Results are non-negative on success or negative errno on failure.
+- Syscall numbers are append-only within an ABI major version.
+- The authoritative table remains in one shared definition; docs and user wrappers must not drift from it.
+- Every new syscall documents pointer ownership, blocking behavior, failure codes, and which userland feature required it.
+
+## Test strategy
+
+- Use headless QEMU and serial output through the same `make qemu` path used by CI.
+- Emit structured markers for each lifecycle event and failure case.
+- Give every scenario a timeout so a hang is a test failure.
+- Archive the boot log and relevant image hashes for diagnosis.

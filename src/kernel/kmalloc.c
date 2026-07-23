@@ -40,6 +40,7 @@ static int ensure_capacity(uintptr_t new_top) {
         }
 
         if (!paging_map(heap_mapped_end, frame, PAGE_WRITE)) {
+            pmm_free_frame(frame);
             return 0;
         }
 
@@ -114,6 +115,9 @@ static void *alloc_from_free(size_t total_size) {
 
 static void *alloc_from_bump(size_t total_size) {
     uintptr_t aligned_top = align_up(heap_top, HEAP_ALIGNMENT);
+    if (aligned_top > heap_limit || total_size > heap_limit - aligned_top) {
+        return NULL;
+    }
     uintptr_t new_top = aligned_top + total_size;
 
     if (!ensure_capacity(new_top)) {
@@ -130,6 +134,9 @@ static void *alloc_from_bump(size_t total_size) {
 
 void *kmalloc(size_t size) {
     if (!size) {
+        return NULL;
+    }
+    if (size > (size_t)-1 - sizeof(struct heap_block) - (HEAP_ALIGNMENT - 1u)) {
         return NULL;
     }
 

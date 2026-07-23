@@ -6,7 +6,8 @@ extern kernel_main
 [bits 32]
 
 MULTIBOOT_MAGIC    equ 0x1BADB002
-MULTIBOOT_FLAGS    equ 0x0
+; Align loaded modules and ask the bootloader for memory information.
+MULTIBOOT_FLAGS    equ 0x3
 MULTIBOOT_CHECKSUM equ -(MULTIBOOT_MAGIC + MULTIBOOT_FLAGS)
 
 section .multiboot
@@ -35,6 +36,7 @@ _start:
 
 protected_mode_start:
     mov esp, 0x90000
+    and esp, -16
     mov ax, KERNEL_DATA_SEG
     mov ds, ax
     mov es, ax
@@ -42,9 +44,12 @@ protected_mode_start:
     mov gs, ax
     mov ss, ax
 
+    ; Keep the stack 16-byte aligned at the C call boundary.
+    sub esp, 8
     push dword [multiboot_info_store]
     push dword [multiboot_magic_store]
     call kernel_main
+    add esp, 16
 
 .halt:
     cli

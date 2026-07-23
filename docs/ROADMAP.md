@@ -1,72 +1,78 @@
-# OS/mosis Roadmap
+# OS/mosis roadmap
 
-This roadmap separates what OS/mosis is now from what it is intended to become.
+This roadmap separates verified implementation from planned direction. Detailed userland sequencing lives in [USERLAND_ROADMAP.md](USERLAND_ROADMAP.md); platform direction lives in [PLATFORM.md](PLATFORM.md).
 
-## Current reality
-OS/mosis is currently a freestanding 32-bit x86 kernel seed with a growing kernel/userland contract. It already has real boot, interrupt, timer, input, paging, shell, and user-mode scaffolding work underway, but it is not yet honestly described as a Unix derivative, a 64-bit platform, or a daily-driver operating system.
+## Current verified slice
 
-## Long-term direction
-OS/mosis is intended to become a Unix-derivative, modern 64-bit daily-driver operating system with FreeBSD as the intended lineage anchor.
+The i386 seed can currently:
 
-That means:
-- the project should not stop at a vague Unix-like aesthetic,
-- the project should not stop at a 32-bit bring-up environment,
-- kernel and userland should continue to be co-designed,
-- interface choices should increasingly reflect deliberate OS design rather than isolated kernel experimentation,
-- provenance and documentation must stay truthful as the project evolves.
+- boot through Multiboot and report the supplied memory map;
+- install exception and IRQ gates, run a PIT heartbeat, and buffer PS/2 keyboard input;
+- allocate physical frames, enable 4 KiB paging, and grow a small kernel heap;
+- mount a generated read-only initramfs;
+- load one ELF into a dedicated user virtual range;
+- cross into ring 3 and service `write`, `exit`, and `getpid` through `int 0x80`;
+- resume the kernel after the synchronous user program exits;
+- enter an interactive diagnostic shell on normal boots; and
+- prove that path headlessly in QEMU with an unambiguous pass/fail exit code.
 
-## Near-term milestones
-1. Stabilize the kernel seed
-   - Keep boot deterministic.
-   - Deepen exception, IRQ, timer, and keyboard confidence.
-   - Continue making the shell a trustworthy inspection surface.
-2. Strengthen memory and process foundations
-   - Tighten PMM, paging, heap, and address-space behavior.
-   - Continue shaping process and user-mode boundaries.
-   - Keep diagnostics strong enough that regressions are legible.
-3. Make userland less symbolic
-   - Expand syscall and ABI documentation.
-   - Make the shell and basic utilities feel like a real surface, not just a demo harness.
-   - Clarify ownership rules for memory, handles, and process state.
-4. Prepare persistent system surfaces
-   - Mature VFS and storage abstractions.
-   - Establish conventions that can survive later Unix-derivative and 64-bit adoption without being throwaway work.
-5. Reduce needless 32-bit lock-in
-   - Audit interfaces for avoidable width assumptions.
-   - Prefer architecture-resilient boundaries where practical.
-   - Keep architecture-specific details corralled instead of letting them leak into generic kernel surfaces.
+The tree does **not** currently have a scheduler, a process table, isolated address spaces, `fork`/`execve`/`waitpid`, writable storage, persistence, or a userland shell.
 
-## Mid-term milestones
-6. 64-bit transition planning
-   - Define what the x86_64 transition means in concrete technical terms.
-   - Identify which current subsystems are scaffolding and which should survive with minimal conceptual change.
-   - Establish the target shape for memory model, address-space rules, calling conventions, and boot flow.
-7. Coherent OS surface
-   - Evolve the system toward a recognizable operating environment rather than a loose collection of subsystems.
-   - Treat shell, filesystem, processes, and userland tools as part of one authored stack.
-8. Truthful lineage planning
-   - Document what FreeBSD lineage anchor means in practical terms before stronger claims are made.
-   - Be explicit about what is inspired by, what is borrowed from, and what is directly adopted.
-   - Avoid drifting into ambiguous phrasing that makes contributors assume compatibility or provenance that does not yet exist.
-9. Daily-driver criteria definition
-   - Write down what daily driver means for OS/mosis in practice.
-   - Likely categories include stable multitasking, storage, networking, recoverability, install/update story, user environment, and enough driver/platform support to be genuinely usable.
-   - Do not let the phrase remain a vibe with no engineering definition.
+## Near term: make the seed trustworthy
 
-## Long-term milestones
-10. Unix-derivative and x86_64 transition execution
-   - Move from aspiration to explicit adoption decisions.
-   - Record provenance, interface intent, platform targets, and compatibility goals clearly.
-   - Update project language when the technical reality justifies stronger wording.
-11. Real operating system maturity
-   - Persistence, tools, networking, installability, recoverability, and a more complete user environment.
-   - A system that feels coherent because it was developed as one stack, not because unrelated pieces were assembled convincingly.
-12. Modern 64-bit daily-driver viability
-   - The project should eventually justify the daily-driver label by lived technical capability, not by branding alone.
+1. **Memory invariants**
+   - Add focused PMM tests for unaligned firmware ranges, reserved frames, exhaustion, and invalid frees.
+   - Add page-mapping tests that verify user/supervisor and writable/read-only flags.
+   - Add heap metadata validation, double-free detection, and coalescing or document why a simpler allocator remains sufficient.
+
+2. **Repeatable boot tests**
+   - Emit structured boot-test markers instead of relying only on prose logs.
+   - Exercise failure paths for malformed ELF files, invalid user pointers, and unknown syscalls.
+   - Keep `make qemu` as the canonical CI and local verification entrypoint.
+
+3. **Finish one process slice**
+   - Define address-space ownership and teardown before adding a scheduler.
+   - Add one process representation, one scheduling mechanism, and one observable lifecycle test together.
+   - Do not reintroduce compile-only `fork`/`execve`/`waitpid` surfaces before they are connected and runnable.
+
+4. **Grow the read-only system surface**
+   - Generalize initramfs generation without hiding its simple on-disk format.
+   - Move the first shell or utility into userland only when the process and descriptor contracts can support it honestly.
+
+## Mid term: boot to a real userland
+
+5. **Processes and execution**
+   - Isolated address spaces, scheduler, `exit`, `waitpid`, and a deliberate spawn or `fork`/`execve` path.
+   - Per-process kernel stacks and explicit resource teardown.
+
+6. **Descriptors and files**
+   - Descriptor tables, console-backed standard streams, and read-only VFS operations first.
+   - A block-device path and a writable filesystem only after ownership and failure behavior are testable.
+
+7. **Userland contract**
+   - Minimal libc wrappers generated from or checked against the authoritative syscall definitions.
+   - `/bin/sh` plus the smallest utilities needed to prove execution, files, redirection, and error handling.
+
+8. **Persistence and system startup**
+   - A real filesystem, an init process, reproducible images, and a documented boot-to-shell chain.
+
+## Long term: platform and lineage transition
+
+9. **x86_64 execution plan**
+   - Define the memory model, boot path, calling conventions, interrupt model, and compatibility expectations.
+   - Preserve concepts that earned their place in the i386 seed; replace scaffolding that did not.
+
+10. **Truthful Unix-derivative lineage**
+    - Define what the FreeBSD lineage anchor means in code and provenance before adopting stronger language.
+    - Record what is inspired, independently implemented, ported, or directly derived.
+
+11. **Daily-driver criteria**
+    - Stable multitasking, storage, networking, recovery, installation and updates, a coherent user environment, and practical hardware support.
+    - The label becomes present tense only when the system can sustain actual daily use.
 
 ## Standing rules
-- Do not overstate what the current tree is.
-- Do not undersell the long-term ambition.
-- Use present tense for present reality.
-- Use future tense for lineage and platform direction until the repo earns stronger claims.
-- Treat the 32-bit seed as a bridge, not a cage.
+
+- Keep the system runnable and inspectable after every step.
+- Land small finished slices instead of broad disconnected scaffolding.
+- Use present tense for verified code and future tense for direction.
+- Treat i386 as the bring-up runway, not the permanent ceiling.

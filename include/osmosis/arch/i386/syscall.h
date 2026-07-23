@@ -10,7 +10,6 @@ enum syscall_number {
     SYSCALL_WRITE = OSMOSIS_SYS_WRITE,
     SYSCALL_EXIT  = OSMOSIS_SYS_EXIT,
     SYSCALL_GETPID = OSMOSIS_SYS_GETPID,
-    SYSCALL_BRK = OSMOSIS_SYS_BRK,
 };
 
 void syscall_init(void);

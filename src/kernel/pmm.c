@@ -28,9 +28,39 @@ static inline int frame_test(uint32_t frame) {
     return frame_bitmap[frame / 8] & (uint8_t)(1 << (frame % 8));
 }
 
+static uint64_t range_end(uint64_t base, uint64_t length) {
+    if (length > UINT64_MAX - base) {
+        return UINT64_MAX;
+    }
+    return base + length;
+}
+
+static uint64_t frame_ceil(uint64_t address) {
+    return (address / FRAME_SIZE) + ((address % FRAME_SIZE) != 0);
+}
+
 static void mark_range(uint64_t base, uint64_t length, int free) {
-    uint64_t start_frame = base / FRAME_SIZE;
-    uint64_t end_frame = (base + length + FRAME_SIZE - 1) / FRAME_SIZE;
+    if (length == 0) {
+        return;
+    }
+
+    uint64_t end = range_end(base, length);
+    uint64_t start_frame;
+    uint64_t end_frame;
+
+    if (free) {
+        /* Only release frames wholly contained in a usable firmware range. */
+        start_frame = frame_ceil(base);
+        end_frame = end / FRAME_SIZE;
+    } else {
+        /* Reservations expand outward so a partial overlap keeps the frame. */
+        start_frame = base / FRAME_SIZE;
+        end_frame = frame_ceil(end);
+    }
+
+    if (start_frame >= frame_count) {
+        return;
+    }
 
     if (end_frame > frame_count) {
         end_frame = frame_count;
@@ -58,7 +88,7 @@ static uint64_t max_usable_address(const struct boot_info *boot) {
         if (region->type != BOOT_MEMORY_USABLE) {
             continue;
         }
-        uint64_t end = region->base + region->length;
+        uint64_t end = range_end(region->base, region->length);
         if (end > max_addr) {
             max_addr = end;
         }
@@ -83,7 +113,7 @@ static void reserve_bootloader_payload(const struct boot_info *boot) {
     }
 
     uintptr_t addr = (uintptr_t)boot->multiboot_ptr;
-    mark_range(addr, FRAME_SIZE, 0);
+    mark_range(addr, sizeof(*boot->multiboot_ptr), 0);
 }
 
 void pmm_init(const struct boot_info *boot) {
@@ -92,10 +122,14 @@ void pmm_init(const struct boot_info *boot) {
     }
 
     uint64_t highest_address = max_usable_address(boot);
-    frame_count = (uint32_t)((highest_address + FRAME_SIZE - 1) / FRAME_SIZE);
-
-    if (frame_count > PMM_MAX_FRAMES) {
+    uint64_t detected_frames = frame_ceil(highest_address);
+    if (detected_frames > PMM_MAX_FRAMES) {
         frame_count = PMM_MAX_FRAMES;
+    } else {
+        frame_count = (uint32_t)detected_frames;
+    }
+    if (frame_count == 0) {
+        panic("PMM found no usable memory");
     }
 
     for (uint32_t i = 0; i < PMM_MAX_FRAMES / 8; i++) {

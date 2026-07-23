@@ -6,6 +6,7 @@
 #define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002
 
 /* Multiboot information flags of interest. */
+#define MULTIBOOT_INFO_MEMORY  0x01
 #define MULTIBOOT_INFO_MEM_MAP 0x40
 
 struct multiboot_mmap_entry {

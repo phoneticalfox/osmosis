@@ -126,6 +126,12 @@ int kprintf(const char *fmt, ...) {
             print_hex(v, width ? width : 1, pad);
             break;
         }
+        case 'p': {
+            uintptr_t v = (uintptr_t)va_arg(args, void *);
+            out_str("0x");
+            print_hex((uint32_t)v, width ? width : 8, '0');
+            break;
+        }
         case 'd': {
             int v = va_arg(args, int);
             print_int(v, width, pad);
